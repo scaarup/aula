@@ -24,7 +24,7 @@ jobs:
           git config user.email github-actions@github.com
           git add ./custom_components/aula/manifest.json
           git commit -m "Updated manifest.json"
-          git push origin HEAD:master
+          git push origin main
       - name: Create zip
         run: |
           cd custom_components/aula
