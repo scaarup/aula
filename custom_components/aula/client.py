@@ -5,7 +5,6 @@ Based on https://github.com/JBoye/HA-Aula
 from cgitb import text
 import logging
 import requests
-#import time
 import datetime
 import requests
 from bs4 import BeautifulSoup
