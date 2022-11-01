@@ -15,13 +15,15 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
-      - name: Update manifest.json version to ${{ github.event.release.tag_name }}
+      - name: Create zip
         run: |
-          python3 ${{ github.workspace }}/.github/scripts/update_hacs_manifest.py --version ${{ github.event.release.tag_name }} --path /custom_components/aula/
-      - name: Commit manifest update
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add ./custom_components/aula/manifest.json
-          git commit -m "Updated manifest.json"
-          git push origin HEAD:main
+          cd custom_components/aula
+          zip aula.zip -r ./
+      - name: Upload zip to release
+        uses: svenstaro/upload-release-action@v1-release
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ./custom_components/aula/aula.zip
+          asset_name: aula.zip
+          tag: ${{ github.ref }}
+          overwrite: true
