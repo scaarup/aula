@@ -1,7 +1,6 @@
 """
 Based on https://github.com/JBoye/HA-Aula
 """
-
 from calendar import calendar
 from .const import DOMAIN
 import logging
