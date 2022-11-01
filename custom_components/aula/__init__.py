@@ -5,9 +5,10 @@ Based on https://github.com/JBoye/HA-Aula
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 
 from .client import Client
-from .const import DOMAIN
+from .const import DOMAIN, STARTUP
 
 async def async_setup(hass, config):
+    _LOGGER.info(STARTUP, integration.version)
     conf = config.get(DOMAIN)
     if conf is None:
         return True
