@@ -98,7 +98,10 @@ class AulaSensor(Entity):
 
     @property
     def unique_id(self):
-        return "aula"+str(self._client._daily_overview[str(self._child["id"])])
+        uid = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["id"]
+        name = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["name"]
+        _LOGGER.debug("Unique ID for "+name+": "+"aula"+str(uid))
+        return "aula"+str(uid)
     
     @property
     def icon(self):
