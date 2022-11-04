@@ -5,6 +5,23 @@
 This is a custom component for Home Assistant to integrate Aula. It is very much based on the great work by @JBoye at https://github.com/JBoye/HA-Aula. However this "rewrite" comes with new features like:
 
 - Installable/updatable via HACS
+- "Ugeplaner"
+
+  ![image](https://user-images.githubusercontent.com/8055470/199975490-236beaa4-2d53-42e4-a966-34b9942c00a4.png)
+
+  As they can be quite large in size, we save these as html, which can be included in your dashboard via the webpage card.
+  Per child we generate two html files - one for this week and one for next week:
+  
+  config/www/<child-name>.html
+  
+  config/www/<child-name>-next.html
+  
+  Example webcard:
+  ```
+  type: iframe
+  url: /local/<child-name>.html
+  aspect_ratio: 50%
+  ```
 - School schedules as Home Assistant calendars. 
 One calendar entity per child. Teacher initials are displayed and substitute teacher is highlighted with full name.
 
