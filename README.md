@@ -45,7 +45,7 @@ cards:
     title: Ugeplan Rasmus, næste uge
     cards:
       - type: markdown
-        content: '{{ state_attr("sensor.hojelse_skole_rasmus", "ugeplan_next") }}' 
+        content: '{{ state_attr("sensor.hojelse_skole_rasmus", "ugeplan_next") }}'  
 ```
   
 - School schedules as Home Assistant calendars. 
