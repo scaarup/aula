@@ -19,6 +19,35 @@ This is a custom component for Home Assistant to integrate Aula. It is very much
   content: '{{ state_attr("sensor.hojelse_skole_emilie", "ugeplan") }}'
   title: Ugeplan for Emilie
   ```
+  Another example using vertical-stack and collapsable-cards:
+  
+  ![image](https://user-images.githubusercontent.com/8055470/200306258-1c9e98ff-75d9-4111-994c-a69833e40c61.png)
+
+```
+type: vertical-stack
+cards:
+  - type: custom:collapsable-cards
+    title: Ugeplan Emilie
+    cards:
+      - type: markdown
+        content: '{{ state_attr("sensor.hojelse_skole_emilie", "ugeplan") }}'
+  - type: custom:collapsable-cards
+    title: Ugeplan Emilie, næste uge
+    cards:
+      - type: markdown
+        content: '{{ state_attr("sensor.hojelse_skole_emilie", "ugeplan_next") }}'
+  - type: custom:collapsable-cards
+    title: Ugeplan Rasmus
+    cards:
+      - type: markdown
+        content: '{{ state_attr("sensor.hojelse_skole_rasmus", "ugeplan") }}'
+  - type: custom:collapsable-cards
+    title: Ugeplan Rasmus, næste uge
+    cards:
+      - type: markdown
+        content: '{{ state_attr("sensor.hojelse_skole_rasmus", "ugeplan_next") }}' 
+```
+  
 - School schedules as Home Assistant calendars. 
 One calendar entity per child. Teacher initials are displayed and substitute teacher is highlighted with full name.
 
