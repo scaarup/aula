@@ -72,9 +72,14 @@ class AulaSensor(Entity):
     @property
     def extra_state_attributes(self):
         daily_info = self._client._daily_overview[str(self._child["id"])]
-
         fields = ['location', 'sleepIntervals', 'checkInTime', 'checkOutTime', 'activityType', 'entryTime', 'exitTime', 'exitWith', 'comment', 'spareTimeActivity', 'selfDeciderStartTime', 'selfDeciderEndTime']
         attributes = {}
+        attributes["ugeplan"] = self._client.ugep_attr[self._child["name"]]
+        try:
+            attributes["ugeplan_next"] = self._client.ugepnext_attr[self._child["name"]]
+        except:
+            attributes["ugeplan_next"] = "Not available"
+            _LOGGER.warn("Could not get ugeplan for next week for child "+str(self._child["name"].split()[0])+". Perhaps not available yet.")
         for attribute in fields:
             if attribute == "exitTime" and daily_info[attribute] == "23:59:00":
                 attributes[attribute] = None
