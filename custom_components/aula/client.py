@@ -23,7 +23,7 @@ class Client:
     def login(self):
         _LOGGER.debug("Logging in")
         self._session = requests.Session()
-        response = self._session.get('https://login.aula.dk/auth/login.php?type=unilogin', verify=True)
+        response = self._session.get('https://login.aula.dk/auth/login.php?type=unilogin', verify=False)
 
         user_data = { 'username': self._username, 'password': self._password }
         redirects = 0
@@ -40,19 +40,19 @@ class Client:
                         if(input.has_attr('name') and input['name'] == key):
                             post_data[key] = user_data[key]
 
-            response = self._session.post(url, data = post_data, verify=True)
+            response = self._session.post(url, data = post_data, verify=False)
             if response.url == 'https://www.aula.dk:443/portal/':
                 success = True
             redirects += 1
 
-        self._profiles = self._session.get(API + "?method=profiles.getProfilesByLogin", verify=True).json()["data"]["profiles"]
-        self._session.get(API + "?method=profiles.getProfileContext&portalrole=guardian", verify=True)
+        self._profiles = self._session.get(API + "?method=profiles.getProfilesByLogin", verify=False).json()["data"]["profiles"]
+        self._session.get(API + "?method=profiles.getProfileContext&portalrole=guardian", verify=False)
         _LOGGER.debug("LOGIN: " + str(success))
 
     def update_data(self):
         is_logged_in = False
         if self._session:
-            response = self._session.get(API + "?method=profiles.getProfilesByLogin", verify=True).json()
+            response = self._session.get(API + "?method=profiles.getProfilesByLogin", verify=False).json()
             is_logged_in = response["status"]["message"] == "OK"
 
         _LOGGER.debug("is_logged_in? " + str(is_logged_in))
@@ -71,7 +71,7 @@ class Client:
 
         self._daily_overview = {}
         for i, child in enumerate(self._children):
-            response = self._session.get(API + "?method=presence.getDailyOverview&childIds[]=" + str(child["id"]), verify=True).json()
+            response = self._session.get(API + "?method=presence.getDailyOverview&childIds[]=" + str(child["id"]), verify=False).json()
             if len(response["data"]) > 0:
                 msg = response["data"][0]
                 self._daily_overview[str(child["id"])] = response["data"][0]
@@ -87,7 +87,7 @@ class Client:
         post_data = '{"instProfileIds":['+instProfileIds+'],"resourceIds":[],"start":"'+start+'","end":"'+end+'"}'
         _LOGGER.debug("Fetching calendars...")
         _LOGGER.debug("Post-data: "+str(post_data))
-        res = self._session.post(API + "?method=calendar.getEventsByProfileIdsAndResourceIds",data=post_data,headers=headers, verify=True)
+        res = self._session.post(API + "?method=calendar.getEventsByProfileIdsAndResourceIds",data=post_data,headers=headers, verify=False)
         try:
             with open('skoleskema.json', 'w') as skoleskema_json:
                 json.dump(res.text, skoleskema_json)
@@ -96,27 +96,25 @@ class Client:
         # End of calendar
         # Ugeplaner:
         path = "config/www/"
-        guardian = self._session.get(API + "?method=profiles.getProfileContext&portalrole=guardian", verify=True).json()["data"]["userId"]
+        guardian = self._session.get(API + "?method=profiles.getProfileContext&portalrole=guardian", verify=False).json()["data"]["userId"]
         childUserIds = ",".join(self._childuserids)
-        self._bearertoken = self._session.get(API + "?method=aulaToken.getAulaToken&widgetId=0029", verify=True).json()["data"]
-        _LOGGER.debug("TOKEN "+str(self._bearertoken))
+        self._bearertoken = self._session.get(API + "?method=aulaToken.getAulaToken&widgetId=0029", verify=False).json()["data"]
         token = "Bearer "+str(self._bearertoken)
-        def ugeplan(week,filename,suffix):
+        self.ugep_attr = {}
+        self.ugepnext_attr = {}
+        def ugeplan(week,thisnext):
             get_payload = '/ugebrev?assuranceLevel=2&childFilter='+childUserIds+'&currentWeekNumber='+week+'&isMobileApp=false&placement=narrow&sessionUUID='+guardian+'&userProfile=guardian'
-            ugeplaner = self._session.get(MIN_UDDANNELSE_API + get_payload, headers={"Authorization":token, "accept":"application/json"}, verify=True)
+            ugeplaner = self._session.get(MIN_UDDANNELSE_API + get_payload, headers={"Authorization":token, "accept":"application/json"}, verify=False)
             for person in ugeplaner.json()["personer"]:
-                navn = str(person["navn"].split()[0])
-                _LOGGER.debug("Ugeplan for "+navn)
                 ugeplan = person["institutioner"][0]["ugebreve"][0]["indhold"]
-                _LOGGER.debug(ugeplan)
-                html = '<html><head><script type="text/javascript">window.onload = function() {if (parent) {var oHead = document.getElementsByTagName("head")[0];var arrStyleSheets = parent.document.getElementsByTagName("style");for (var i = 0; i < arrStyleSheets.length; i++)oHead.appendChild(arrStyleSheets[i].cloneNode(true));}}</script></head><h1 class="card-header"><div class="name">Ugeplan, '+navn+'</div></h1>'
-                _filename = filename+navn+suffix
-                with open(_filename, 'w') as htmlfile:
-                    htmlfile.write(html+ugeplan+"</html>")
+                if thisnext == "this":
+                    self.ugep_attr[person["navn"]] = ugeplan
+                elif thisnext == "next":
+                    self.ugepnext_attr[person["navn"]] = ugeplan
         now = datetime.datetime.now() + datetime.timedelta(weeks=1)
         thisweek = datetime.datetime.now().strftime('%Y-W%W')
         nextweek = now.strftime("%Y-W%W")
-        ugeplan(thisweek,path,".html")
-        ugeplan(nextweek,path,"-next.html")
+        ugeplan(thisweek,"this")
+        ugeplan(nextweek,"next")
         # End of Ugeplaner
         return True
