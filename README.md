@@ -4,7 +4,9 @@
 
 This is a custom component for Home Assistant to integrate Aula. It is very much based on the great work by @JBoye at https://github.com/JBoye/HA-Aula. However this "rewrite" comes with new features like:
 
-- Installable/updatable via HACS
+- Installable and updatable via HACS
+- UI config flow
+- School schedules as Home Assistant calendars. 
 - "Ugeplaner"
 
   We save "ugeplaner" as sensor attributes "ugeplan" and "ugeplan_next". Can be rendered like:
@@ -47,9 +49,6 @@ cards:
       - type: markdown
         content: '{{ state_attr("sensor.hojelse_skole_rasmus", "ugeplan_next") }}' 
 ```
-  
-- School schedules as Home Assistant calendars. 
-One calendar entity per child. Teacher initials are displayed and substitute teacher is highlighted with full name.
 
    ![image](https://user-images.githubusercontent.com/8055470/199254249-3bf441bc-7dce-4f5d-a809-d119d20a7b2b.png)
 - Lots of small fixes and optimizations
@@ -70,13 +69,9 @@ One calendar entity per child. Teacher initials are displayed and substitute tea
 
 ## Setup
 
-- Add the following to your configuration.yaml:
+- Go to Settings -> Integrations -> Add Integration
+- Search for "Aula" and follow the instructions in the config flow.
 
-```
-aula:
-  username: <your unilogin username>
-  password: <your unilogin password>
-  schoolschedule: true # If you want "skoleskema" as calendars
-```
+### Known issues
 
-- Restart Home Assistant.
+The config flow does not currently support a reconfiguration. Meaning when your password expires, the integration must be deleted and added again, in order to update the password.
