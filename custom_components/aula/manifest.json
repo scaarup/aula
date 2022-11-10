@@ -13,8 +13,7 @@
     "name": "Aula",
     "requirements": [
         "beautifulsoup4",
-        "lxml",
-        "gidgethub[aiohttp]==4.1.1"
+        "lxml"
     ],
     "version": "0.1.13"
 }
