@@ -1,0 +1,51 @@
+{
+  "config": {
+    "error": {
+      "1": "Unknown error",
+      "2": "Unknown error"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "username": "Unilogin username",
+          "password": "Unilogin password",
+          "schoolschedule": "Add school schedules as calendar entities?",
+          "ugeplan": "Add ugeplaner as sensor attributes?"
+        },
+        "description": "Enter your Unilogin credentials...",
+        "title": "Authentication"
+      },
+      "options": {
+        "data": {
+          "schoolschedule": "Add school schedules as calendar entities?",
+          "ugeplan": "Add ugeplaner as sensor attributes?"
+        },
+        "description": "",
+        "title": "Options"
+      }
+    }
+  },
+  "options": {
+    "error": {
+      "1": "Unknown error"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "username": "Unilogin username",
+          "password": "Unilogin password"
+        },
+        "description": "Enter your Unilogin credentials...",
+        "title": "Authentication"
+      },
+      "options": {
+        "data": {
+          "schoolschedule": "Add school schedules as calendar entities?",
+          "ugeplan": "Add ugeplaner as sensor attributes?"
+        },
+        "description": "",
+        "title": "Options"
+      }
+    }
+  }
+}
