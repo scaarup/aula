@@ -1,19 +1,39 @@
 """
 Based on https://github.com/JBoye/HA-Aula
 """
-from calendar import calendar
 from .const import DOMAIN
 import logging
-
 from datetime import datetime, timedelta
-
 from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant import config_entries, core
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    """Setup sensor platform"""
+from homeassistant.const import (
+    CONF_USERNAME,
+    CONF_PASSWORD,
+)
+from .const import (
+    CONF_SCHOOLSCHEDULE,
+    CONF_UGEPLAN,
+    DOMAIN,
+)
+
+async def async_setup_entry(
+    hass: core.HomeAssistant,
+    config_entry: config_entries.ConfigEntry,
+    async_add_entities,
+):
+    """Setup sensors from a config entry created in the integrations UI."""
+    config = hass.data[DOMAIN][config_entry.entry_id]
+
+    if config_entry.options:
+        config.update(config_entry.options)
+    from .client import Client
+    client  = Client(config[CONF_USERNAME], config[CONF_PASSWORD],config[CONF_SCHOOLSCHEDULE],config[CONF_UGEPLAN])
+    hass.data[DOMAIN]["client"] = client
+    
 
     async def async_update_data():
         client = hass.data[DOMAIN]["client"]
@@ -36,7 +56,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     for i, child in enumerate(client._children):
         if str(child["id"]) in client._daily_overview:
             entities.append(AulaSensor(hass, coordinator, child))
-    async_add_entities(entities)
+    async_add_entities(entities,update_before_add=True)
 
 class AulaSensor(Entity):
     def __init__(self, hass, coordinator, child) -> None:
@@ -74,12 +94,15 @@ class AulaSensor(Entity):
         daily_info = self._client._daily_overview[str(self._child["id"])]
         fields = ['location', 'sleepIntervals', 'checkInTime', 'checkOutTime', 'activityType', 'entryTime', 'exitTime', 'exitWith', 'comment', 'spareTimeActivity', 'selfDeciderStartTime', 'selfDeciderEndTime']
         attributes = {}
-        attributes["ugeplan"] = self._client.ugep_attr[self._child["name"]]
+        try:
+            attributes["ugeplan"] = self._client.ugep_attr[self._child["name"]]
+        except:
+            attributes["ugeplan"] = "Not available"
         try:
             attributes["ugeplan_next"] = self._client.ugepnext_attr[self._child["name"]]
         except:
             attributes["ugeplan_next"] = "Not available"
-            _LOGGER.warn("Could not get ugeplan for next week for child "+str(self._child["name"].split()[0])+". Perhaps not available yet.")
+            _LOGGER.debug("Could not get ugeplan for next week for child "+str(self._child["name"].split()[0])+". Perhaps not available yet or you have not enabled ugeplan")
         for attribute in fields:
             if attribute == "exitTime" and daily_info[attribute] == "23:59:00":
                 attributes[attribute] = None

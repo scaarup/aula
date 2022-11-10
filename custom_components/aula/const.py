@@ -17,3 +17,5 @@ https://github.com/scaarup/aula/issues
 DOMAIN = "aula"
 API = "https://www.aula.dk/api/v14"
 MIN_UDDANNELSE_API = "https://api.minuddannelse.net/aula"
+CONF_SCHOOLSCHEDULE = "schoolschedule"
+CONF_UGEPLAN = "ugeplan"

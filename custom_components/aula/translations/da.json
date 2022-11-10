@@ -1,0 +1,43 @@
+{
+    "config": {
+      "error": {
+        "1": "Unknown error",
+        "2": "Unknown error"
+      },
+      "step": {
+        "user": {
+          "data": {
+            "username": "Unilogin brugernavn",
+            "password": "Unilogin password",
+            "schoolschedule": "Tilføj skoleskemaer som kalender entiteter?",
+            "ugeplan": "Tilføj ugeplaner som sensor attributter?"
+          },
+          "description": "Indtast dine Unilogin oplysninger",
+          "title": "Login"
+        }
+      }
+    },
+    "options": {
+      "error": {
+        "1": "Unknown error"
+      },
+      "step": {
+        "user": {
+          "data": {
+            "username": "Unilogin brugernavn",
+            "password": "Unilogin password"
+          },
+          "description": "Indtast dine Unilogin oplysninger",
+          "title": "Login"
+        },
+        "options": {
+          "data": {
+            "schoolschedule": "Tilføj skoleskemaer som kalender entiteter?",
+            "ugeplan": "Tilføj ugeplaner som sensor attributter?"
+          },
+          "description": "",
+          "title": "Login"
+        }
+      }
+    }
+  }
