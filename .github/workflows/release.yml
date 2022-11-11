@@ -1,8 +1,5 @@
 name: Release
 
-permissions:
-  contents: read
-  
 on:
   workflow_dispatch:
   release:
@@ -16,12 +13,8 @@ jobs:
     name: Prepare release asset
     runs-on: ubuntu-latest
     steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@ebacdc22ef6c2cfb85ee5ded8f2e640f4c776dd5
-        with:
-          egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
       - name: Check out repository
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@v3
       - name: Update manifest.json version to ${{ github.event.release.tag_name }}
         run: |
           python3 ${{ github.workspace }}/.github/scripts/update_hacs_manifest.py --version ${{ github.event.release.tag_name }} --path /custom_components/aula/
@@ -37,7 +30,7 @@ jobs:
           cd custom_components/aula
           zip aula.zip -r ./
       - name: Upload zip to release
-        uses: svenstaro/upload-release-action@14569a2d348419d066e34e5dfa65071ecd30b64b
+        uses: svenstaro/upload-release-action@v1-release
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: ./custom_components/aula/aula.zip
