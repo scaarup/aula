@@ -1,4 +1,8 @@
 {
+    "domain": "aula",
+    "name": "Aula",
+    "documentation": "https://github.com/scaarup/aula/blob/main/README.md",
+    "issue_tracker": "https://github.com/scaarup/aula/issues",
     "after_dependencies": [
         "http"
     ],
@@ -6,11 +10,7 @@
         "@scaarup"
     ],
     "config_flow": true,
-    "documentation": "https://github.com/scaarup/aula/blob/master/README.md",
-    "domain": "aula",
     "iot_class": "cloud_polling",
-    "issue_tracker": "https://github.com/scaarup/aula/issues",
-    "name": "Aula",
     "requirements": [
         "beautifulsoup4",
         "lxml"

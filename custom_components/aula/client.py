@@ -102,6 +102,7 @@ class Client:
         # Ugeplaner:
         if self._ugeplan == True:
             guardian = self._session.get(API + "?method=profiles.getProfileContext&portalrole=guardian", verify=True).json()["data"]["userId"]
+            _LOGGER.debug("guardian :"+str(guardian))
             childUserIds = ",".join(self._childuserids)
             self._bearertoken = self._session.get(API + "?method=aulaToken.getAulaToken&widgetId=0029", verify=True).json()["data"]
             token = "Bearer "+str(self._bearertoken)
@@ -110,6 +111,8 @@ class Client:
             def ugeplan(week,thisnext):
                 get_payload = '/ugebrev?assuranceLevel=2&childFilter='+childUserIds+'&currentWeekNumber='+week+'&isMobileApp=false&placement=narrow&sessionUUID='+guardian+'&userProfile=guardian'
                 ugeplaner = self._session.get(MIN_UDDANNELSE_API + get_payload, headers={"Authorization":token, "accept":"application/json"}, verify=True)
+                _LOGGER.debug("ugeplaner status_code "+str(ugeplaner.status_code))
+                _LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
                 for person in ugeplaner.json()["personer"]:
                     ugeplan = person["institutioner"][0]["ugebreve"][0]["indhold"]
                     if thisnext == "this":
