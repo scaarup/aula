@@ -119,6 +119,7 @@ class Client:
                         self.ugep_attr[person["navn"]] = ugeplan
                     elif thisnext == "next":
                         self.ugepnext_attr[person["navn"]] = ugeplan
+                        
             now = datetime.datetime.now() + datetime.timedelta(weeks=1)
             thisweek = datetime.datetime.now().strftime('%Y-W%W')
             nextweek = now.strftime("%Y-W%W")
