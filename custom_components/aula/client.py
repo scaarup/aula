@@ -2,15 +2,13 @@
 Aula client
 Based on https://github.com/JBoye/HA-Aula
 """
-#from cgitb import text
 import logging
 import requests
 import datetime
 import requests
 from bs4 import BeautifulSoup
 import json
-#from urllib.parse import urljoin
-from .const import API, MIN_UDDANNELSE_API
+from .const import API, MIN_UDDANNELSE_API, MEEBOOK_API
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -104,22 +102,39 @@ class Client:
             guardian = self._session.get(API + "?method=profiles.getProfileContext&portalrole=guardian", verify=True).json()["data"]["userId"]
             _LOGGER.debug("guardian :"+str(guardian))
             childUserIds = ",".join(self._childuserids)
-            self._bearertoken = self._session.get(API + "?method=aulaToken.getAulaToken&widgetId=0029", verify=True).json()["data"]
-            token = "Bearer "+str(self._bearertoken)
-            self.ugep_attr = {}
-            self.ugepnext_attr = {}
+
+            widgetid = self._session.get(API + "?method=profiles.getProfileContext", verify=True).json()["data"]
+            _LOGGER.debug(widgetid)
+
             def ugeplan(week,thisnext):
-                get_payload = '/ugebrev?assuranceLevel=2&childFilter='+childUserIds+'&currentWeekNumber='+week+'&isMobileApp=false&placement=narrow&sessionUUID='+guardian+'&userProfile=guardian'
-                ugeplaner = self._session.get(MIN_UDDANNELSE_API + get_payload, headers={"Authorization":token, "accept":"application/json"}, verify=True)
-                _LOGGER.debug("ugeplaner status_code "+str(ugeplaner.status_code))
-                _LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
-                for person in ugeplaner.json()["personer"]:
-                    ugeplan = person["institutioner"][0]["ugebreve"][0]["indhold"]
-                    if thisnext == "this":
-                        self.ugep_attr[person["navn"]] = ugeplan
-                    elif thisnext == "next":
-                        self.ugepnext_attr[person["navn"]] = ugeplan
-                        
+                try:
+                    self._bearertoken = self._session.get(API + "?method=aulaToken.getAulaToken&widgetId=0029", verify=True).json()["data"]
+                    token = "Bearer "+str(self._bearertoken)
+                    self.ugep_attr = {}
+                    self.ugepnext_attr = {}
+                    get_payload = '/ugebrev?assuranceLevel=2&childFilter='+childUserIds+'&currentWeekNumber='+week+'&isMobileApp=false&placement=narrow&sessionUUID='+guardian+'&userProfile=guardian'
+                    ugeplaner = self._session.get(MIN_UDDANNELSE_API + get_payload, headers={"Authorization":token, "accept":"application/json"}, verify=True)
+                    _LOGGER.debug("ugeplaner status_code "+str(ugeplaner.status_code))
+                    _LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
+                    for person in ugeplaner.json()["personer"]:
+                        ugeplan = person["institutioner"][0]["ugebreve"][0]["indhold"]
+                        if thisnext == "this":
+                            self.ugep_attr[person["navn"]] = ugeplan
+                        elif thisnext == "next":
+                            self.ugepnext_attr[person["navn"]] = ugeplan
+                except:
+                    # Try Meebook:
+                    _LOGGER("In the Meebook flow...")
+                    self._bearertoken = self._session.get(API + "?method=aulaToken.getAulaToken&widgetId=0004", verify=True).json()["data"]
+                    token = "Bearer "+str(self._bearertoken)
+                    _LOGGER.debug("Token "+token)
+                    self.ugep_attr = {}
+                    self.ugepnext_attr = {}
+                    get_payload = '/relatedweekplan/all?currentWeekNumber='+week+'&userProfile=guardian'
+                    ugeplaner = self._session.get(MEEBOOK_API + get_payload, headers={"Authorization":token, "accept":"application/json"}, verify=True)
+                    _LOGGER.debug("Meebook ugeplaner status_code "+str(ugeplaner.status_code))
+                    _LOGGER.debug("Meebook ugeplaner response "+str(ugeplaner.text))                 
+
             now = datetime.datetime.now() + datetime.timedelta(weeks=1)
             thisweek = datetime.datetime.now().strftime('%Y-W%W')
             nextweek = now.strftime("%Y-W%W")
