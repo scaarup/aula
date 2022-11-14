@@ -103,8 +103,12 @@ class Client:
             _LOGGER.debug("guardian :"+str(guardian))
             childUserIds = ",".join(self._childuserids)
 
-            widgetid = self._session.get(API + "?method=profiles.getProfileContext", verify=True).json()["data"]
-            _LOGGER.debug(widgetid)
+            widgets = self._session.get(API + "?method=profiles.getProfileContext", verify=True).json()["data"]["moduleWidgetConfiguration"]["widgetConfigurations"]
+            _LOGGER.debug("widgetId "+str(widgets))
+            for widget in widgets:
+                widgetid = widget["widget"]["widgetId"]
+                widgetname = widget["widget"]["name"]
+                _LOGGER.debug("Widget "+str(widgetid)+" "+str(widgetname))
 
             def ugeplan(week,thisnext):
                 try:
