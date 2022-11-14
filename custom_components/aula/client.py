@@ -137,7 +137,16 @@ class Client:
                     get_payload = '/relatedweekplan/all?currentWeekNumber='+week+'&userProfile=guardian'
                     ugeplaner = self._session.get(MEEBOOK_API + get_payload, headers={"Authorization":token, "accept":"application/json"}, verify=True)
                     _LOGGER.debug("Meebook ugeplaner status_code "+str(ugeplaner.status_code))
-                    _LOGGER.debug("Meebook ugeplaner response "+str(ugeplaner.text))                 
+                    _LOGGER.debug("Meebook ugeplaner response "+str(ugeplaner.text))
+                    try:
+                        for person in ugeplaner.json():
+                            ugeplan = person["weekPlan"]["tasks"][0]["content"]
+                            if thisnext == "this":
+                                self.ugep_attr[person["name"]] = ugeplan
+                            elif thisnext == "next":
+                                self.ugepnext_attr[person["name"]] = ugeplan
+                    except:
+                        _LOGGER.warn("Could not parse ugeplaner (Meebook)")
 
             now = datetime.datetime.now() + datetime.timedelta(weeks=1)
             thisweek = datetime.datetime.now().strftime('%Y-W%W')
