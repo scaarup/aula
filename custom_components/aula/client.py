@@ -111,7 +111,8 @@ class Client:
                 _LOGGER.debug("Widget "+str(widgetid)+" "+str(widgetname))
 
             def ugeplan(week,thisnext):
-                try:
+                meebook = 1
+                if meebook == 0:
                     self._bearertoken = self._session.get(API + "?method=aulaToken.getAulaToken&widgetId=0029", verify=True).json()["data"]
                     token = "Bearer "+str(self._bearertoken)
                     self.ugep_attr = {}
@@ -126,9 +127,9 @@ class Client:
                             self.ugep_attr[person["navn"]] = ugeplan
                         elif thisnext == "next":
                             self.ugepnext_attr[person["navn"]] = ugeplan
-                except:
+                if meebook == 1:
                     # Try Meebook:
-                    _LOGGER("In the Meebook flow...")
+                    _LOGGER.debug("In the Meebook flow...")
                     self._bearertoken = self._session.get(API + "?method=aulaToken.getAulaToken&widgetId=0004", verify=True).json()["data"]
                     token = "Bearer "+str(self._bearertoken)
                     _LOGGER.debug("Token "+token)
