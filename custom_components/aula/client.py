@@ -106,9 +106,17 @@ class Client:
             widgets = self._session.get(API + "?method=profiles.getProfileContext", verify=True).json()["data"]["moduleWidgetConfiguration"]["widgetConfigurations"]
             _LOGGER.debug("widgetId "+str(widgets))
             for widget in widgets:
-                widgetid = widget["widget"]["widgetId"]
+                widgetid = str(widget["widget"]["widgetId"])
                 widgetname = widget["widget"]["name"]
-                _LOGGER.debug("Widget "+str(widgetid)+" "+str(widgetname))
+                _LOGGER.debug("Widget "+widgetid+" "+str(widgetname))
+                if widgetid == "0004":
+                    _LOGGER.debug("Setting meebook to 1")
+                    meebook = 1
+                    break
+                if widgetid == "0029":
+                    _LOGGER.debug("Setting meebook to 0")
+                    meebook = 0
+                    break
 
             def ugeplan(week,thisnext):
                 meebook = 1
