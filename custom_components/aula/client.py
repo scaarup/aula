@@ -138,7 +138,7 @@ class Client:
                 if meebook == 1:
                     # Try Meebook:
                     _LOGGER.debug("In the Meebook flow...")
-                    self._bearertoken = self._session.get(API + "?method=aulaToken.getAulaToken&widgetId=0004, verify=True).json()["data"]
+                    self._bearertoken = self._session.get(API + "?method=aulaToken.getAulaToken&widgetId=0004", verify=True).json()["data"]
                     token = "Bearer "+str(self._bearertoken)
                     _LOGGER.debug("Token "+token)
                     self.ugep_attr = {}
