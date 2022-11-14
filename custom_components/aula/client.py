@@ -138,18 +138,19 @@ class Client:
                 if meebook == 1:
                     # Try Meebook:
                     _LOGGER.debug("In the Meebook flow...")
-                    self._bearertoken = self._session.get(API + "?method=aulaToken.getAulaToken&widgetId=0004", verify=True).json()["data"]
+                    self._bearertoken = self._session.get(API + "?method=aulaToken.getAulaToken&widgetId=0004, verify=True).json()["data"]
                     token = "Bearer "+str(self._bearertoken)
                     _LOGGER.debug("Token "+token)
                     self.ugep_attr = {}
                     self.ugepnext_attr = {}
-                    get_payload = '/relatedweekplan/all?currentWeekNumber='+week+'&userProfile=guardian'
+                    get_payload = '/relatedweekplan/all?currentWeekNumber='+week+'&userProfile=guardian&childFilter='+childUserIds
                     ugeplaner = self._session.get(MEEBOOK_API + get_payload, headers={"Authorization":token, "accept":"application/json"}, verify=True)
                     _LOGGER.debug("Meebook ugeplaner status_code "+str(ugeplaner.status_code))
                     _LOGGER.debug("Meebook ugeplaner response "+str(ugeplaner.text))
                     try:
                         for person in ugeplaner.json():
                             ugeplan = person["weekPlan"]["tasks"][0]["content"]
+                            _LOGGER.debug("Meebook ugeplan for "+str(person["name"]))
                             if thisnext == "this":
                                 self.ugep_attr[person["name"]] = ugeplan
                             elif thisnext == "next":
