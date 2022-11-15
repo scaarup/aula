@@ -103,8 +103,11 @@ class CalendarData:
                     try:
                         teacher = c['lesson']['participants'][0]['teacherInitials']
                     except:
-                        _LOGGER.debug("Lesson json dump"+str(c['lesson']))
-                        teacher = c['lesson']['participants'][0]['teacherName']
+                        try:
+                            _LOGGER.debug("Lesson json dump"+str(c['lesson']))
+                            teacher = c['lesson']['participants'][0]['teacherName']
+                        except:
+                            continue
                 event = CalendarEvent(
                     summary=summary+", "+teacher,
                     start = start,
