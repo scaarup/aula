@@ -100,7 +100,11 @@ class CalendarData:
                         vikar = 1
                         break
                 if vikar == 0:
-                    teacher = c['lesson']['participants'][0]['teacherInitials']
+                    try:
+                        teacher = c['lesson']['participants'][0]['teacherInitials']
+                    except:
+                        _LOGGER.debug("Lesson json dump"+str(c['lesson']))
+                        teacher = c['lesson']['participants'][0]['teacherName']
                 event = CalendarEvent(
                     summary=summary+", "+teacher,
                     start = start,
