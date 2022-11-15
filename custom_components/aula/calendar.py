@@ -107,7 +107,8 @@ class CalendarData:
                             _LOGGER.debug("Lesson json dump"+str(c['lesson']))
                             teacher = c['lesson']['participants'][0]['teacherName']
                         except:
-                            continue
+                            _LOGGER.debug("Could not find any teacher information for "+summary+" at "+str(start))
+                            teacher = ""
                 event = CalendarEvent(
                     summary=summary+", "+teacher,
                     start = start,
