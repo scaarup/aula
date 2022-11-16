@@ -54,7 +54,10 @@ async def async_setup_entry(
     client = hass.data[DOMAIN]["client"]
     await hass.async_add_executor_job(client.update_data)
     for i, child in enumerate(client._children):
-        if str(child["id"]) in client._daily_overview:
+        if client.presence == 1:
+            if str(child["id"]) in client._daily_overview:
+                entities.append(AulaSensor(hass, coordinator, child))
+        else:
             entities.append(AulaSensor(hass, coordinator, child))
     async_add_entities(entities,update_before_add=True)
 
@@ -67,10 +70,16 @@ class AulaSensor(Entity):
 
     @property
     def name(self):
-        try:
-            group_name = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["institutionName"]
-        except:
-            group_name = "Aula"
+        if self._client.presence == 1:
+            try:
+                group_name = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["institutionName"]
+            except:
+                group_name = "Aula"
+        else:
+            for c in self._client._profilecontext["relations"]:
+                if c["id"] == str(self._child["id"]):
+                    group_name = c["institution"]["institutionName"]
+                    break
         return group_name + " " + self._child["name"].split()[0]
 
     @property
