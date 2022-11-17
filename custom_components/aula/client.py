@@ -15,6 +15,7 @@ from .const import API, MIN_UDDANNELSE_API
 _LOGGER = logging.getLogger(__name__)
 
 class Client:
+    presence = 0
     def __init__(self, username, password, schoolschedule, ugeplan):
         self._username = username
         self._password = password
@@ -48,12 +49,14 @@ class Client:
             redirects += 1
 
         self._profiles = self._session.get(API + "?method=profiles.getProfilesByLogin", verify=True).json()["data"]["profiles"]
-        self._session.get(API + "?method=profiles.getProfileContext&portalrole=guardian", verify=True)
+        self._profilecontext = self._session.get(API + "?method=profiles.getProfileContext&portalrole=guardian", verify=True).json()['data']['institutionProfile']['relations']
+
         _LOGGER.debug("LOGIN: " + str(success))
 
     def update_data(self):
         _LOGGER.debug("self._schoolschedule "+str(self._schoolschedule))
         _LOGGER.debug("self._ugeplan "+str(self._ugeplan))
+        _LOGGER.debug("Presence module: "+str(self.presence))
         is_logged_in = False
         if self._session:
             response = self._session.get(API + "?method=profiles.getProfilesByLogin", verify=True).json()
@@ -72,13 +75,17 @@ class Client:
                 self._children.append(child)
                 self._childids.append(str(child["id"]))
                 self._childuserids.append(str(child["userId"]))
-
+        
         self._daily_overview = {}
+   
         for i, child in enumerate(self._children):
             response = self._session.get(API + "?method=presence.getDailyOverview&childIds[]=" + str(child["id"]), verify=True).json()
             if len(response["data"]) > 0:
-                msg = response["data"][0]
+                self.presence = 1
                 self._daily_overview[str(child["id"])] = response["data"][0]
+            else:
+                _LOGGER.warn("Unable to retrieve presence data from Aula. Some data will be missing from sensor entities.")
+                self.presence = 0
 
         # Calendar:
         if self._schoolschedule == True:
