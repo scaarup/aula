@@ -76,9 +76,11 @@ class AulaSensor(Entity):
             except:
                 group_name = "Aula"
         else:
-            for c in self._client._profilecontext["relations"]:
-                if c["id"] == str(self._child["id"]):
+            _LOGGER.debug("Sensorname without presence module...")
+            for c in self._client._profilecontext:
+                if str(c["id"]) == str(self._child["id"]):
                     group_name = c["institution"]["institutionName"]
+                    _LOGGER.debug("group_name: "+str(group_name))
                     break
         return group_name + " " + self._child["name"].split()[0]
 
@@ -93,10 +95,12 @@ class AulaSensor(Entity):
             5 = SOVER
             8 = HENTET/GÅET
         """
-
-        states = ["Ikke kommet", "Syg", "Ferie/Fri", "Kommet/Til stede", "På tur", "Sover", "6", "7", "Gået", "9", "10", "11", "12", "13", "14", "15"]
-        daily_info = self._client._daily_overview[str(self._child["id"])]
-        return states[daily_info["status"]]
+        if self._client.presence == 1:
+            states = ["Ikke kommet", "Syg", "Ferie/Fri", "Kommet/Til stede", "På tur", "Sover", "6", "7", "Gået", "9", "10", "11", "12", "13", "14", "15"]
+            daily_info = self._client._daily_overview[str(self._child["id"])]
+            return states[daily_info["status"]]
+        else:
+            return "n/a"
 
     @property
     def extra_state_attributes(self):
@@ -112,14 +116,15 @@ class AulaSensor(Entity):
         except:
             attributes["ugeplan_next"] = "Not available"
             _LOGGER.debug("Could not get ugeplan for next week for child "+str(self._child["name"].split()[0])+". Perhaps not available yet or you have not enabled ugeplan")
-        for attribute in fields:
-            if attribute == "exitTime" and daily_info[attribute] == "23:59:00":
-                attributes[attribute] = None
-            else:
-                try:
-                    attributes[attribute] = datetime.strptime(daily_info[attribute], "%H:%M:%S").strftime("%H:%M")
-                except:
-                    attributes[attribute] = daily_info[attribute]
+        if self._client.presence == 1:
+            for attribute in fields:
+                if attribute == "exitTime" and daily_info[attribute] == "23:59:00":
+                    attributes[attribute] = None
+                else:
+                    try:
+                        attributes[attribute] = datetime.strptime(daily_info[attribute], "%H:%M:%S").strftime("%H:%M")
+                    except:
+                        attributes[attribute] = daily_info[attribute]
         return attributes
 
 
@@ -135,8 +140,18 @@ class AulaSensor(Entity):
 
     @property
     def unique_id(self):
-        uid = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["id"]
-        name = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["name"]
+        if self._client.presence == 1:
+            uid = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["id"]
+            name = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["name"]
+        else:
+            for c in self._client._profilecontext:
+                _LOGGER.debug("in loop "+str(c))
+                _LOGGER.debug("trying to match "+str(self._child["id"])+" with "+str(c['id']))
+                if str(c["id"]) == str(self._child["id"]):
+                    _LOGGER.debug("MATCH")
+                    uid = c["id"]
+                    name = c["firstName"]
+                    break
         _LOGGER.debug("Unique ID for "+name+": "+"aula"+str(uid))
         return "aula"+str(uid)
     
