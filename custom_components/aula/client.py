@@ -163,7 +163,7 @@ class Client:
 
                     _LOGGER.debug("get_payload: "+get_payload)
                     #ugeplaner = self._session.get(MEEBOOK_API + get_payload, headers={"Authorization":token, "accept":"application/json", "sessionuuid":self._username}, verify=True)
-                    ugeplaner = self._session.get(MEEBOOK_API + get_payload, headers=headers, verify=True)
+                    ugeplaner = requests.get(MEEBOOK_API + get_payload, headers=headers, verify=True)
                     _LOGGER.debug("Meebook ugeplaner status_code "+str(ugeplaner.status_code))
                     _LOGGER.debug("Meebook ugeplaner response "+str(ugeplaner.text))
                     try:
