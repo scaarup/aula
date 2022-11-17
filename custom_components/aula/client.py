@@ -143,8 +143,20 @@ class Client:
                     _LOGGER.debug("Token "+token)
                     self.ugep_attr = {}
                     self.ugepnext_attr = {}
+                    headers = {
+                        "authority": "app.meebook.com",
+                        "accept": "application/json",
+                        "authorization": token,
+                        "dnt": "1",
+                        "origin": "https://www.aula.dk",
+                        "referer": "https://www.aula.dk/",
+                        "sessionuuid": self._username,
+                        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36",
+                        "x-version": "1.0"
+                    }
                     get_payload = '/relatedweekplan/all?currentWeekNumber='+week+'&userProfile=guardian&childFilter='+childUserIds
-                    ugeplaner = self._session.get(MEEBOOK_API + get_payload, headers={"Authorization":token, "accept":"application/json", "sessionuuid":self._username}, verify=True)
+                    #ugeplaner = self._session.get(MEEBOOK_API + get_payload, headers={"Authorization":token, "accept":"application/json", "sessionuuid":self._username}, verify=True)
+                    ugeplaner = self._session.get(MEEBOOK_API + get_payload, headers=headers, verify=True)
                     _LOGGER.debug("Meebook ugeplaner status_code "+str(ugeplaner.status_code))
                     _LOGGER.debug("Meebook ugeplaner response "+str(ugeplaner.text))
                     try:
