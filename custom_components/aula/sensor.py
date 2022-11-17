@@ -76,11 +76,9 @@ class AulaSensor(Entity):
             except:
                 group_name = "Aula"
         else:
-            _LOGGER.debug("Sensorname without presence module...")
             for c in self._client._profilecontext:
                 if str(c["id"]) == str(self._child["id"]):
                     group_name = c["institution"]["institutionName"]
-                    _LOGGER.debug("group_name: "+str(group_name))
                     break
         return group_name + " " + self._child["name"].split()[0]
 
