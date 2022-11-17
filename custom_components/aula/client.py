@@ -138,22 +138,13 @@ class Client:
                 if meebook == 1:
                     # Try Meebook:
                     _LOGGER.debug("In the Meebook flow...")
-
-                    res = self._session.get(API + "?method=aulaToken.getAulaToken&widgetId=0029", verify=True)
-                    _LOGGER.debug("Headers: "+str(res.headers))
-                    try:
-                        sessionuuid = res.headers["sessionuuid"]
-                    except:
-                        sessionuuid = 0
-                    _LOGGER.debug("sessionuuid "+str(sessionuuid))
-
                     self._bearertoken = self._session.get(API + "?method=aulaToken.getAulaToken&widgetId=0004", verify=True).json()["data"]
                     token = "Bearer "+str(self._bearertoken)
                     _LOGGER.debug("Token "+token)
                     self.ugep_attr = {}
                     self.ugepnext_attr = {}
                     get_payload = '/relatedweekplan/all?currentWeekNumber='+week+'&userProfile=guardian&childFilter='+childUserIds
-                    ugeplaner = self._session.get(MEEBOOK_API + get_payload, headers={"Authorization":token, "accept":"application/json", "sessionuuid":sessionuuid}, verify=True)
+                    ugeplaner = self._session.get(MEEBOOK_API + get_payload, headers={"Authorization":token, "accept":"application/json", "sessionuuid":self._username}, verify=True)
                     _LOGGER.debug("Meebook ugeplaner status_code "+str(ugeplaner.status_code))
                     _LOGGER.debug("Meebook ugeplaner response "+str(ugeplaner.text))
                     try:
