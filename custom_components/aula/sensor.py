@@ -104,7 +104,8 @@ class AulaSensor(Entity):
 
     @property
     def extra_state_attributes(self):
-        daily_info = self._client._daily_overview[str(self._child["id"])]
+        if self._client.presence == 1:
+            daily_info = self._client._daily_overview[str(self._child["id"])]
         fields = ['location', 'sleepIntervals', 'checkInTime', 'checkOutTime', 'activityType', 'entryTime', 'exitTime', 'exitWith', 'comment', 'spareTimeActivity', 'selfDeciderStartTime', 'selfDeciderEndTime']
         attributes = {}
         try:
