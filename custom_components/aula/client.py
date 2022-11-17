@@ -65,11 +65,13 @@ class Client:
         self._childuserids = []
         self._childids = []
         self._children = []
+        self._institutionProfiles = []
         for profile in self._profiles:
             for child in profile["children"]:
                 self._children.append(child)
                 self._childids.append(str(child["id"]))
                 self._childuserids.append(str(child["userId"]))
+                self._institutionProfiles.append(str(child["institutionCode"]))
 
         self._daily_overview = {}
         for i, child in enumerate(self._children):
@@ -135,6 +137,7 @@ class Client:
                             self.ugep_attr[person["navn"]] = ugeplan
                         elif thisnext == "next":
                             self.ugepnext_attr[person["navn"]] = ugeplan
+
                 if meebook == 1:
                     # Try Meebook:
                     _LOGGER.debug("In the Meebook flow...")
@@ -154,7 +157,11 @@ class Client:
                         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36",
                         "x-version": "1.0"
                     }
-                    get_payload = '/relatedweekplan/all?currentWeekNumber='+week+'&userProfile=guardian&childFilter='+childUserIds
+                    childFilter = "&childFilter[]=".join(self._childuserids)
+                    institutionFilter = "&institutionFilter[]=".join(self._institutionProfiles)
+                    get_payload = '/relatedweekplan/all?currentWeekNumber='+week+'&userProfile=guardian&childFilter[]='+childFilter+'&institutionFilter[]='+institutionFilter
+
+                    _LOGGER.debug("get_payload: "+get_payload)
                     #ugeplaner = self._session.get(MEEBOOK_API + get_payload, headers={"Authorization":token, "accept":"application/json", "sessionuuid":self._username}, verify=True)
                     ugeplaner = self._session.get(MEEBOOK_API + get_payload, headers=headers, verify=True)
                     _LOGGER.debug("Meebook ugeplaner status_code "+str(ugeplaner.status_code))
