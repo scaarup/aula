@@ -30,7 +30,7 @@ jobs:
           cd custom_components/aula
           zip aula.zip -r ./
       - name: Upload zip to release
-        uses: svenstaro/upload-release-action@v1-release
+        uses: svenstaro/upload-release-action@2.3.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: ./custom_components/aula/aula.zip
