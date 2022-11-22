@@ -54,7 +54,11 @@ async def async_setup_entry(
     client = hass.data[DOMAIN]["client"]
     await hass.async_add_executor_job(client.update_data)
     for i, child in enumerate(client._children):
-        if client.presence == 1:
+
+        _LOGGER.debug("Presence data for child "+str(child["id"])+" : "+str(client.presence[str(child["id"])]))
+
+        if client.presence[str(child["id"])] == 1:
+        #if client.presence == 1:
             if str(child["id"]) in client._daily_overview:
                 entities.append(AulaSensor(hass, coordinator, child))
         else:
@@ -70,7 +74,8 @@ class AulaSensor(Entity):
 
     @property
     def name(self):
-        if self._client.presence == 1:
+        #if self._client.presence == 1:
+        if self._client.presence[str(self._child["id"])] == 1:
             try:
                 group_name = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["institutionName"]
             except:
@@ -93,7 +98,8 @@ class AulaSensor(Entity):
             5 = SOVER
             8 = HENTET/GÅET
         """
-        if self._client.presence == 1:
+        #if self._client.presence == 1:
+        if self._client.presence[str(self._child["id"])] == 1:
             states = ["Ikke kommet", "Syg", "Ferie/Fri", "Kommet/Til stede", "På tur", "Sover", "6", "7", "Gået", "9", "10", "11", "12", "13", "14", "15"]
             daily_info = self._client._daily_overview[str(self._child["id"])]
             return states[daily_info["status"]]
@@ -102,7 +108,8 @@ class AulaSensor(Entity):
 
     @property
     def extra_state_attributes(self):
-        if self._client.presence == 1:
+        #if self._client.presence == 1:
+        if self._client.presence[str(self._child["id"])] == 1:
             daily_info = self._client._daily_overview[str(self._child["id"])]
         fields = ['location', 'sleepIntervals', 'checkInTime', 'checkOutTime', 'activityType', 'entryTime', 'exitTime', 'exitWith', 'comment', 'spareTimeActivity', 'selfDeciderStartTime', 'selfDeciderEndTime']
         attributes = {}
@@ -115,7 +122,8 @@ class AulaSensor(Entity):
         except:
             attributes["ugeplan_next"] = "Not available"
             _LOGGER.debug("Could not get ugeplan for next week for child "+str(self._child["name"].split()[0])+". Perhaps not available yet or you have not enabled ugeplan")
-        if self._client.presence == 1:
+        #if self._client.presence == 1:
+        if self._client.presence[str(self._child["id"])] == 1:
             for attribute in fields:
                 if attribute == "exitTime" and daily_info[attribute] == "23:59:00":
                     attributes[attribute] = None
@@ -139,7 +147,8 @@ class AulaSensor(Entity):
 
     @property
     def unique_id(self):
-        if self._client.presence == 1:
+        #if self._client.presence == 1:
+        if self._client.presence[str(self._child["id"])] == 1:
             uid = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["id"]
             name = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["name"]
         else:

@@ -15,7 +15,7 @@ from .const import API, MIN_UDDANNELSE_API
 _LOGGER = logging.getLogger(__name__)
 
 class Client:
-    presence = 0
+    presence = {}
     def __init__(self, username, password, schoolschedule, ugeplan):
         self._username = username
         self._password = password
@@ -56,7 +56,7 @@ class Client:
     def update_data(self):
         _LOGGER.debug("self._schoolschedule "+str(self._schoolschedule))
         _LOGGER.debug("self._ugeplan "+str(self._ugeplan))
-        _LOGGER.debug("Presence module: "+str(self.presence))
+        #_LOGGER.debug("Presence module: "+str(self.presence))
         is_logged_in = False
         if self._session:
             response = self._session.get(API + "?method=profiles.getProfilesByLogin", verify=True).json()
@@ -78,14 +78,17 @@ class Client:
         
         self._daily_overview = {}
    
+        #self.presence = {}
         for i, child in enumerate(self._children):
             response = self._session.get(API + "?method=presence.getDailyOverview&childIds[]=" + str(child["id"]), verify=True).json()
             if len(response["data"]) > 0:
-                self.presence = 1
+                #self.presence = 1
+                self.presence[str(child["id"])] = 1
                 self._daily_overview[str(child["id"])] = response["data"][0]
             else:
-                _LOGGER.warn("Unable to retrieve presence data from Aula. Some data will be missing from sensor entities.")
-                self.presence = 0
+                _LOGGER.warn("Unable to retrieve presence data from Aula from child with id "+str(child["id"])+". Some data will be missing from sensor entities.")
+                self.presence[str(child["id"])] = 1
+                #self.presence = 0
 
         # Calendar:
         if self._schoolschedule == True:
