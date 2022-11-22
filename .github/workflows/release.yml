@@ -1,9 +1,9 @@
-name: Release
+name: Release prod
 
 on:
   workflow_dispatch:
-  release:
-    types: [published]
+#  release:
+#    types: [published]
 
 env:
   COMPONENT_DIR: aula
