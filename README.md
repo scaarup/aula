@@ -75,5 +75,4 @@ cards:
 ### Known issues
 
 - The config flow does not currently support a reconfiguration. Meaning when your password expires, the integration must be deleted and added again, in order to update the password.
-- The login flow does not work if you are a teacher.
 - "Ugeplaner" currently only works from source "Min Uddannelse".
