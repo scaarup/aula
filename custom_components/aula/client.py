@@ -26,7 +26,7 @@ class Client:
         self._session = requests.Session()
         response = self._session.get('https://login.aula.dk/auth/login.php?type=unilogin', verify=True)
 
-        user_data = { 'username': self._username, 'password': self._password }
+        user_data = { 'username': self._username, 'password': self._password, 'selected-aktoer': "KONTAKT" }
         redirects = 0
         success = False
         url = ''
