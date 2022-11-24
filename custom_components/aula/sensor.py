@@ -94,6 +94,7 @@ class AulaSensor(Entity):
         daily_info = self._client._daily_overview[str(self._child["id"])]
         fields = ['location', 'sleepIntervals', 'checkInTime', 'checkOutTime', 'activityType', 'entryTime', 'exitTime', 'exitWith', 'comment', 'spareTimeActivity', 'selfDeciderStartTime', 'selfDeciderEndTime']
         attributes = {}
+        #if self._client.
         try:
             attributes["ugeplan"] = self._client.ugep_attr[self._child["name"]]
         except:
