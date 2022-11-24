@@ -8,10 +8,12 @@ assignees: ''
 ---
 
 **Describe the bug or problem**
-A clear and concise description of what the bug is.
+<!--
+  A clear and concise description of what the bug is.
+-->
 
 **Please answer the following**
-[ ] I have more than one child
-[ ] My children are attending different schools / institutions
+- [ ] I have more than one child
+- [ ] My children are attending different schools / institutions
 
 **Please provide debug log from the integration**
