@@ -99,6 +99,7 @@ class AulaSensor(Entity):
             attributes["ugeplan"] = self._client.ugep_attr[self._child["name"]]
         except:
             attributes["ugeplan"] = "Not available"
+            _LOGGER.debug("Could not find ugeplan with name "+str(self._child["name"]))
         try:
             attributes["ugeplan_next"] = self._client.ugepnext_attr[self._child["name"]]
         except:
