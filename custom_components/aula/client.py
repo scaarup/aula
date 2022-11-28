@@ -48,6 +48,7 @@ class Client:
             redirects += 1
 
         self._profiles = self._session.get(API + "?method=profiles.getProfilesByLogin", verify=True).json()["data"]["profiles"]
+        _LOGGER.debug("profiles: "+str(self._profiles))
         self._session.get(API + "?method=profiles.getProfileContext&portalrole=guardian", verify=True)
         _LOGGER.debug("LOGIN: " + str(success))
 
@@ -80,8 +81,8 @@ class Client:
             response = self._session.get(API + "?method=presence.getDailyOverview&childIds[]=" + str(child["id"]), verify=True).json()
             if len(response["data"]) > 0:
                 self._daily_overview[str(child["id"])] = response["data"][0]
-            msg = response["data"][0]
-            _LOGGER.debug("daily_overview: "+str(msg))
+            msg = response
+            _LOGGER.debug("daily_overview for childid: "+str(child["id"])+" : "+str(msg))
 
         # Calendar:
         if self._schoolschedule == True:
