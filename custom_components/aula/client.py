@@ -79,8 +79,9 @@ class Client:
         for i, child in enumerate(self._children):
             response = self._session.get(API + "?method=presence.getDailyOverview&childIds[]=" + str(child["id"]), verify=True).json()
             if len(response["data"]) > 0:
-                msg = response["data"][0]
                 self._daily_overview[str(child["id"])] = response["data"][0]
+            msg = response["data"][0]
+            _LOGGER.debug("daily_overview: "+str(msg))
 
         # Calendar:
         if self._schoolschedule == True:
@@ -92,8 +93,8 @@ class Client:
             _end = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=14)
             end = _end.strftime('%Y-%m-%d 00:00:00.0000%z')
             post_data = '{"instProfileIds":['+instProfileIds+'],"resourceIds":[],"start":"'+start+'","end":"'+end+'"}'
-            _LOGGER.debug("Fetching calendars...")
-            _LOGGER.debug("Calendar post-data: "+str(post_data))
+            #_LOGGER.debug("Fetching calendars...")
+            #_LOGGER.debug("Calendar post-data: "+str(post_data))
             res = self._session.post(API + "?method=calendar.getEventsByProfileIdsAndResourceIds",data=post_data,headers=headers, verify=True)
             try:
                 with open('skoleskema.json', 'w') as skoleskema_json:
