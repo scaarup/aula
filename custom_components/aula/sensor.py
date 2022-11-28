@@ -59,6 +59,7 @@ async def async_setup_entry(
 
         if client.presence[str(child["id"])] == 1:
             if str(child["id"]) in client._daily_overview:
+                _LOGGER.debug("Found presence data for childid "+str(child["id"])+" adding sensor entity.")
                 entities.append(AulaSensor(hass, coordinator, child))
         else:
             entities.append(AulaSensor(hass, coordinator, child))
@@ -83,6 +84,7 @@ class AulaSensor(Entity):
                 if str(c["id"]) == str(self._child["id"]):
                     group_name = c["institution"]["institutionName"]
                     break
+        _LOGGER.debug(str(self._child["id"])+" institution: "+str(group_name))
         return group_name + " " + self._child["name"].split()[0]
 
     @property
@@ -101,6 +103,7 @@ class AulaSensor(Entity):
             daily_info = self._client._daily_overview[str(self._child["id"])]
             return states[daily_info["status"]]
         else:
+            _LOGGER.debug("Setting state to n/a for child "+str(self._child["id"]))
             return "n/a"
 
     @property
