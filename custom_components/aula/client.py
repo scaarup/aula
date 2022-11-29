@@ -97,8 +97,8 @@ class Client:
             _end = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=14)
             end = _end.strftime('%Y-%m-%d 00:00:00.0000%z')
             post_data = '{"instProfileIds":['+instProfileIds+'],"resourceIds":[],"start":"'+start+'","end":"'+end+'"}'
-            _LOGGER.debug("Fetching calendars...")
-            _LOGGER.debug("Calendar post-data: "+str(post_data))
+            #_LOGGER.debug("Fetching calendars...")
+            #_LOGGER.debug("Calendar post-data: "+str(post_data))
             res = self._session.post(API + "?method=calendar.getEventsByProfileIdsAndResourceIds",data=post_data,headers=headers, verify=True)
             try:
                 with open('skoleskema.json', 'w') as skoleskema_json:
@@ -109,11 +109,11 @@ class Client:
         # Ugeplaner:
         if self._ugeplan == True:
             guardian = self._session.get(API + "?method=profiles.getProfileContext&portalrole=guardian", verify=True).json()["data"]["userId"]
-            _LOGGER.debug("guardian :"+str(guardian))
+            #_LOGGER.debug("guardian :"+str(guardian))
             childUserIds = ",".join(self._childuserids)
 
             widgets = self._session.get(API + "?method=profiles.getProfileContext", verify=True).json()["data"]["moduleWidgetConfiguration"]["widgetConfigurations"]
-            _LOGGER.debug("widgetId "+str(widgets))
+            #_LOGGER.debug("widgetId "+str(widgets))
 
             for widget in widgets:
                 widgetid = str(widget["widget"]["widgetId"])
@@ -181,6 +181,7 @@ class Client:
                     else:
                         response = requests.get(MEEBOOK_API + get_payload, headers=headers, verify=True)
                         data = json.loads(response.text, strict=False)
+                        _LOGGER.debug("Meebook ugeplan raw response from week "+week+": "+str(response.text))
                     
                     for person in data:
                         _LOGGER.debug("Meebook ugeplan for "+person["name"])
