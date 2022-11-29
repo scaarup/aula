@@ -112,12 +112,14 @@ class AulaSensor(Entity):
             daily_info = self._client._daily_overview[str(self._child["id"])]
         fields = ['location', 'sleepIntervals', 'checkInTime', 'checkOutTime', 'activityType', 'entryTime', 'exitTime', 'exitWith', 'comment', 'spareTimeActivity', 'selfDeciderStartTime', 'selfDeciderEndTime']
         attributes = {}
+        _LOGGER.debug("Dump of ugep_attr: "+str(self._client.ugep_attr))
+        _LOGGER.debug("Dump of ugepnext_attr: "+str(self._client.ugepnext_attr))
         try:
-            attributes["ugeplan"] = self._client.ugep_attr[self._child["name"]]
+            attributes["ugeplan"] = self._client.ugep_attr[self._child["name"].split()[0]]
         except:
             attributes["ugeplan"] = "Not available"
         try:
-            attributes["ugeplan_next"] = self._client.ugepnext_attr[self._child["name"]]
+            attributes["ugeplan_next"] = self._client.ugepnext_attr[self._child["name"].split()[0]]
         except:
             attributes["ugeplan_next"] = "Not available"
             _LOGGER.debug("Could not get ugeplan for next week for child "+str(self._child["name"].split()[0])+". Perhaps not available yet or you have not enabled ugeplan")

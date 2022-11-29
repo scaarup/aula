@@ -199,9 +199,9 @@ class Client:
                                 ugep = ugep+"-"
                         _LOGGER.debug(ugep)
                         if thisnext == "this":
-                            self.ugep_attr[person["name"]] = ugep
+                            self.ugep_attr[person["name"]].split()[0] = ugep
                         elif thisnext == "next":
-                            self.ugepnext_attr[person["name"]] = ugep
+                            self.ugepnext_attr[person["name"]].split()[0] = ugep
                         _LOGGER.debug("ugeplan object "+str(self.ugep_attr))
 
             now = datetime.datetime.now() + datetime.timedelta(weeks=1)
