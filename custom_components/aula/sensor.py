@@ -164,7 +164,11 @@ class AulaSensor(Entity):
         #    _LOGGER.debug("Unique ID for "+name+": "+"aula"+str(uid))
         #except:
         #    _LOGGER.debug("Unique ID for child with id "+str(self._child["id"])+": "+"aula"+str(uid))
-        return "aula"+str(uid)
+        try:
+            unique_id = "aula"+str(uid)
+        except:
+            unique_id = "aula"+str(self._child["id"])
+        return unique_id
     
     @property
     def icon(self):
