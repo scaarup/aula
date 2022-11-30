@@ -160,10 +160,10 @@ class AulaSensor(Entity):
                     uid = c["id"]
                     name = c["firstName"]
                     break
-        try:
-            _LOGGER.debug("Unique ID for "+name+": "+"aula"+str(uid))
-        except:
-            _LOGGER.debug("Unique ID for child with id "+str(self._child["id"])+": "+"aula"+str(uid))
+        #try:
+        #    _LOGGER.debug("Unique ID for "+name+": "+"aula"+str(uid))
+        #except:
+        #    _LOGGER.debug("Unique ID for child with id "+str(self._child["id"])+": "+"aula"+str(uid))
         return "aula"+str(uid)
     
     @property
