@@ -52,9 +52,9 @@ class Client:
 
         self._profiles = self._session.get(API + "?method=profiles.getProfilesByLogin", verify=True).json()["data"]["profiles"]
         ###
-        _LOGGER.debug("self._profiles: "+str(self._profiles))
-        test = self._session.get(API + "?method=profiles.getProfileContext&portalrole=guardian", verify=True)
-        _LOGGER.debug("full res: "+str(test.text))
+        #_LOGGER.debug("self._profiles: "+str(self._profiles))
+        #test = self._session.get(API + "?method=profiles.getProfileContext&portalrole=guardian", verify=True)
+        #_LOGGER.debug("full res: "+str(test.text))
         ###
         self._profilecontext = self._session.get(API + "?method=profiles.getProfileContext&portalrole=guardian", verify=True).json()['data']['institutionProfile']['relations']
 
@@ -73,16 +73,22 @@ class Client:
         if not is_logged_in:
             self.login()
 
+        self._childnames = {}
+        self._institutions = {}
         self._childuserids = []
         self._childids = []
         self._children = []
         self._institutionProfiles = []
         for profile in self._profiles:
             for child in profile["children"]:
+                self._childnames[child["id"]] = child["name"]
+                self._institutions[child["id"]] = child["institutionProfile"]["institutionName"]
                 self._children.append(child)
                 self._childids.append(str(child["id"]))
                 self._childuserids.append(str(child["userId"]))
                 self._institutionProfiles.append(str(child["institutionCode"]))
+        _LOGGER.debug("Child ids and names: "+str(self._childnames))
+        _LOGGER.debug("Child ids and institution names: "+str(self._institutions))
         
         self._daily_overview = {}
         for i, child in enumerate(self._children):
@@ -150,7 +156,7 @@ class Client:
                     get_payload = '/ugebrev?assuranceLevel=2&childFilter='+childUserIds+'&currentWeekNumber='+week+'&isMobileApp=false&placement=narrow&sessionUUID='+guardian+'&userProfile=guardian'
                     ugeplaner = self._session.get(MIN_UDDANNELSE_API + get_payload, headers={"Authorization":token, "accept":"application/json"}, verify=True)
                     _LOGGER.debug("ugeplaner status_code "+str(ugeplaner.status_code))
-                    _LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
+                    #_LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
                     for person in ugeplaner.json()["personer"]:
                         ugeplan = person["institutioner"][0]["ugebreve"][0]["indhold"]
                         if thisnext == "this":

@@ -74,18 +74,21 @@ class AulaSensor(Entity):
 
     @property
     def name(self):
-        if self._client.presence[str(self._child["id"])] == 1:
-            try:
-                group_name = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["institutionName"]
-            except:
-                group_name = "Aula"
-        else:
-            for c in self._client._profilecontext:
-                if str(c["id"]) == str(self._child["id"]):
-                    group_name = c["institution"]["institutionName"]
-                    break
-        _LOGGER.debug(str(self._child["id"])+" institution: "+str(group_name))
-        return group_name + " " + self._child["name"].split()[0]
+        childname = self._client._childnames[self._child["id"]].split()[0]
+        institution = self._client._institutions[self._child["id"]]
+        # if self._client.presence[str(self._child["id"])] == 1:
+        #     try:
+        #         group_name = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["institutionName"]
+        #     except:
+        #         group_name = "Aula"
+        # else:
+        #     for c in self._client._profilecontext:
+        #         if str(c["id"]) == str(self._child["id"]):
+        #             group_name = c["institution"]["institutionName"]
+        #             break
+        # _LOGGER.debug(str(self._child["id"])+" institution: "+str(group_name))
+        # return group_name + " " + self._child["name"].split()[0]
+        return institution + " " + childname
 
     @property
     def state(self):
@@ -112,8 +115,8 @@ class AulaSensor(Entity):
             daily_info = self._client._daily_overview[str(self._child["id"])]
         fields = ['location', 'sleepIntervals', 'checkInTime', 'checkOutTime', 'activityType', 'entryTime', 'exitTime', 'exitWith', 'comment', 'spareTimeActivity', 'selfDeciderStartTime', 'selfDeciderEndTime']
         attributes = {}
-        _LOGGER.debug("Dump of ugep_attr: "+str(self._client.ugep_attr))
-        _LOGGER.debug("Dump of ugepnext_attr: "+str(self._client.ugepnext_attr))
+        #_LOGGER.debug("Dump of ugep_attr: "+str(self._client.ugep_attr))
+        #_LOGGER.debug("Dump of ugepnext_attr: "+str(self._client.ugepnext_attr))
         try:
             attributes["ugeplan"] = self._client.ugep_attr[self._child["name"].split()[0]]
         except:
@@ -134,7 +137,6 @@ class AulaSensor(Entity):
                         attributes[attribute] = daily_info[attribute]
         return attributes
 
-
     @property
     def should_poll(self):
         """No need to poll. Coordinator notifies entity of updates."""
@@ -147,27 +149,29 @@ class AulaSensor(Entity):
 
     @property
     def unique_id(self):
-        _LOGGER.debug("client._profilecontext "+str(self._client._profilecontext))
-        if self._client.presence[str(self._child["id"])] == 1:
-            _LOGGER.debug("Got presence data for childid "+str(self._child["id"])+" .Trying to set unique id.")
-            uid = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["id"]
-            name = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["name"]
-        else:
-            _LOGGER.debug("No presence data for childid "+str(self._child["id"])+" .Trying to set unique id.")
-            for c in self._client._profilecontext:
-                if str(c["id"]) == str(self._child["id"]):
-                    _LOGGER.debug("MATCH")
-                    uid = c["id"]
-                    name = c["firstName"]
-                    break
+        unique_id = "aula"+str(self._child["id"])
+        #_LOGGER.debug("client._profilecontext "+str(self._client._profilecontext))
+        #if self._client.presence[str(self._child["id"])] == 1:
+        #    _LOGGER.debug("Got presence data for childid "+str(self._child["id"])+" .Trying to set unique id.")
+        #    uid = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["id"]
+        #    name = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["name"]
+        #else:
+        #    _LOGGER.debug("No presence data for childid "+str(self._child["id"])+" .Trying to set unique id.")
+        #    for c in self._client._profilecontext:
+        #        if str(c["id"]) == str(self._child["id"]):
+        #            _LOGGER.debug("MATCH")
+        #            uid = c["id"]
+        #            name = c["firstName"]
+        #            break
         #try:
         #    _LOGGER.debug("Unique ID for "+name+": "+"aula"+str(uid))
         #except:
         #    _LOGGER.debug("Unique ID for child with id "+str(self._child["id"])+": "+"aula"+str(uid))
-        try:
-            unique_id = "aula"+str(uid)
-        except:
-            unique_id = "aula"+str(self._child["id"])
+        #try:
+        #    unique_id = "aula"+str(uid)
+        #except:
+        #    unique_id = "aula"+str(self._child["id"])
+        _LOGGER.debug("Unique ID for child "+str(self._child["id"])+" "+unique_id)
         return unique_id
     
     @property
