@@ -147,10 +147,13 @@ class AulaSensor(Entity):
 
     @property
     def unique_id(self):
+        _LOGGER.debug("client._profilecontext "+str(self._client._profilecontext))
         if self._client.presence[str(self._child["id"])] == 1:
+            _LOGGER.debug("Got presence data for childid "+str(self._child["id"])+" .Trying to set unique id.")
             uid = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["id"]
             name = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["name"]
         else:
+            _LOGGER.debug("No presence data for childid "+str(self._child["id"])+" .Trying to set unique id.")
             for c in self._client._profilecontext:
                 if str(c["id"]) == str(self._child["id"]):
                     _LOGGER.debug("MATCH")

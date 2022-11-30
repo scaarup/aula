@@ -88,6 +88,7 @@ class Client:
             else:
                 _LOGGER.warn("Unable to retrieve presence data from Aula from child with id "+str(child["id"])+". Some data will be missing from sensor entities.")
                 self.presence[str(child["id"])] = 0
+        _LOGGER.debug("self.presence: "+str(self.presence))
 
         # Calendar:
         if self._schoolschedule == True:
