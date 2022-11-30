@@ -51,6 +51,11 @@ class Client:
             redirects += 1
 
         self._profiles = self._session.get(API + "?method=profiles.getProfilesByLogin", verify=True).json()["data"]["profiles"]
+        ###
+        _LOGGER.debug("self._profiles: "+str(self._profiles))
+        test = self._session.get(API + "?method=profiles.getProfileContext&portalrole=guardian", verify=True)
+        _LOGGER.debug("full res: "+str(test.text))
+        ###
         self._profilecontext = self._session.get(API + "?method=profiles.getProfileContext&portalrole=guardian", verify=True).json()['data']['institutionProfile']['relations']
 
         _LOGGER.debug("LOGIN: " + str(success))
