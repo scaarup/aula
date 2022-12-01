@@ -54,11 +54,10 @@ async def async_setup_entry(
     client = hass.data[DOMAIN]["client"]
     await hass.async_add_executor_job(client.update_data)
     for i, child in enumerate(client._children):
-
-        _LOGGER.debug("Presence data for child "+str(child["id"])+" : "+str(client.presence[str(child["id"])]))
-
+        #_LOGGER.debug("Presence data for child "+str(child["id"])+" : "+str(client.presence[str(child["id"])]))
         if client.presence[str(child["id"])] == 1:
             if str(child["id"]) in client._daily_overview:
+                _LOGGER.debug("Found presence data for childid "+str(child["id"])+" adding sensor entity.")
                 entities.append(AulaSensor(hass, coordinator, child))
         else:
             entities.append(AulaSensor(hass, coordinator, child))
@@ -73,17 +72,9 @@ class AulaSensor(Entity):
 
     @property
     def name(self):
-        if self._client.presence[str(self._child["id"])] == 1:
-            try:
-                group_name = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["institutionName"]
-            except:
-                group_name = "Aula"
-        else:
-            for c in self._client._profilecontext:
-                if str(c["id"]) == str(self._child["id"]):
-                    group_name = c["institution"]["institutionName"]
-                    break
-        return group_name + " " + self._child["name"].split()[0]
+        childname = self._client._childnames[self._child["id"]].split()[0]
+        institution = self._client._institutions[self._child["id"]]
+        return institution + " " + childname
 
     @property
     def state(self):
@@ -101,6 +92,7 @@ class AulaSensor(Entity):
             daily_info = self._client._daily_overview[str(self._child["id"])]
             return states[daily_info["status"]]
         else:
+            _LOGGER.debug("Setting state to n/a for child "+str(self._child["id"]))
             return "n/a"
 
     @property
@@ -109,12 +101,14 @@ class AulaSensor(Entity):
             daily_info = self._client._daily_overview[str(self._child["id"])]
         fields = ['location', 'sleepIntervals', 'checkInTime', 'checkOutTime', 'activityType', 'entryTime', 'exitTime', 'exitWith', 'comment', 'spareTimeActivity', 'selfDeciderStartTime', 'selfDeciderEndTime']
         attributes = {}
+        #_LOGGER.debug("Dump of ugep_attr: "+str(self._client.ugep_attr))
+        #_LOGGER.debug("Dump of ugepnext_attr: "+str(self._client.ugepnext_attr))
         try:
-            attributes["ugeplan"] = self._client.ugep_attr[self._child["name"]]
+            attributes["ugeplan"] = self._client.ugep_attr[self._child["name"].split()[0]]
         except:
             attributes["ugeplan"] = "Not available"
         try:
-            attributes["ugeplan_next"] = self._client.ugepnext_attr[self._child["name"]]
+            attributes["ugeplan_next"] = self._client.ugepnext_attr[self._child["name"].split()[0]]
         except:
             attributes["ugeplan_next"] = "Not available"
             _LOGGER.debug("Could not get ugeplan for next week for child "+str(self._child["name"].split()[0])+". Perhaps not available yet or you have not enabled ugeplan")
@@ -129,7 +123,6 @@ class AulaSensor(Entity):
                         attributes[attribute] = daily_info[attribute]
         return attributes
 
-
     @property
     def should_poll(self):
         """No need to poll. Coordinator notifies entity of updates."""
@@ -142,21 +135,9 @@ class AulaSensor(Entity):
 
     @property
     def unique_id(self):
-        if self._client.presence[str(self._child["id"])] == 1:
-            uid = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["id"]
-            name = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["name"]
-        else:
-            for c in self._client._profilecontext:
-                if str(c["id"]) == str(self._child["id"]):
-                    _LOGGER.debug("MATCH")
-                    uid = c["id"]
-                    name = c["firstName"]
-                    break
-        try:
-            _LOGGER.debug("Unique ID for "+name+": "+"aula"+str(uid))
-        except:
-            _LOGGER.debug("Unique ID for child with id "+str(self._child["id"])+": "+"aula"+str(uid))
-        return "aula"+str(uid)
+        unique_id = "aula"+str(self._child["id"])
+        _LOGGER.debug("Unique ID for child "+str(self._child["id"])+" "+unique_id)
+        return unique_id
     
     @property
     def icon(self):
