@@ -54,9 +54,7 @@ async def async_setup_entry(
     client = hass.data[DOMAIN]["client"]
     await hass.async_add_executor_job(client.update_data)
     for i, child in enumerate(client._children):
-
-        _LOGGER.debug("Presence data for child "+str(child["id"])+" : "+str(client.presence[str(child["id"])]))
-
+        #_LOGGER.debug("Presence data for child "+str(child["id"])+" : "+str(client.presence[str(child["id"])]))
         if client.presence[str(child["id"])] == 1:
             if str(child["id"]) in client._daily_overview:
                 _LOGGER.debug("Found presence data for childid "+str(child["id"])+" adding sensor entity.")
@@ -76,18 +74,6 @@ class AulaSensor(Entity):
     def name(self):
         childname = self._client._childnames[self._child["id"]].split()[0]
         institution = self._client._institutions[self._child["id"]]
-        # if self._client.presence[str(self._child["id"])] == 1:
-        #     try:
-        #         group_name = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["institutionName"]
-        #     except:
-        #         group_name = "Aula"
-        # else:
-        #     for c in self._client._profilecontext:
-        #         if str(c["id"]) == str(self._child["id"]):
-        #             group_name = c["institution"]["institutionName"]
-        #             break
-        # _LOGGER.debug(str(self._child["id"])+" institution: "+str(group_name))
-        # return group_name + " " + self._child["name"].split()[0]
         return institution + " " + childname
 
     @property
@@ -150,27 +136,6 @@ class AulaSensor(Entity):
     @property
     def unique_id(self):
         unique_id = "aula"+str(self._child["id"])
-        #_LOGGER.debug("client._profilecontext "+str(self._client._profilecontext))
-        #if self._client.presence[str(self._child["id"])] == 1:
-        #    _LOGGER.debug("Got presence data for childid "+str(self._child["id"])+" .Trying to set unique id.")
-        #    uid = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["id"]
-        #    name = self._client._daily_overview[str(self._child["id"])]["institutionProfile"]["name"]
-        #else:
-        #    _LOGGER.debug("No presence data for childid "+str(self._child["id"])+" .Trying to set unique id.")
-        #    for c in self._client._profilecontext:
-        #        if str(c["id"]) == str(self._child["id"]):
-        #            _LOGGER.debug("MATCH")
-        #            uid = c["id"]
-        #            name = c["firstName"]
-        #            break
-        #try:
-        #    _LOGGER.debug("Unique ID for "+name+": "+"aula"+str(uid))
-        #except:
-        #    _LOGGER.debug("Unique ID for child with id "+str(self._child["id"])+": "+"aula"+str(uid))
-        #try:
-        #    unique_id = "aula"+str(uid)
-        #except:
-        #    unique_id = "aula"+str(self._child["id"])
         _LOGGER.debug("Unique ID for child "+str(self._child["id"])+" "+unique_id)
         return unique_id
     
