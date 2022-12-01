@@ -50,22 +50,9 @@ class Client:
                 success = True
             redirects += 1
 
-        # Find the API url in case of a version change
         self.apiurl = API+API_VERSION
-        apiver = int(API_VERSION)
-        api_success = False
-        while api_success == False:
-            _LOGGER.debug("Trying API at "+self.apiurl)
-            ver = self._session.get(self.apiurl + "?method=profiles.getProfilesByLogin", verify=True)
-            if ver.status_code == 410:
-                _LOGGER.warning("API was expected at "+self.apiurl+" but responded with HTTP 410.")
-                apiver += 1
-            elif ver.status_code == 200:
-                self._profiles = ver.json()["data"]["profiles"]
-                api_success = True
-            self.apiurl = API+str(apiver)
-        _LOGGER.debug("Found API on "+self.apiurl)
-        #
+        ver = self._session.get(self.apiurl + "?method=profiles.getProfilesByLogin", verify=True)
+        self._profiles = ver.json()["data"]["profiles"]
         self._profilecontext = self._session.get(self.apiurl + "?method=profiles.getProfileContext&portalrole=guardian", verify=True).json()['data']['institutionProfile']['relations']
         _LOGGER.debug("LOGIN: " + str(success))
 
