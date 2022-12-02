@@ -15,5 +15,5 @@
         "beautifulsoup4",
         "lxml"
     ],
-    "version": "0.1.23"
+    "version": "0.1.24"
 }
