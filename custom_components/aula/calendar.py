@@ -12,6 +12,7 @@ from homeassistant.util import Throttle
 _LOGGER = logging.getLogger(__name__)
 
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=10)
+PARALLEL_UPDATES = 1
 
 async def async_setup_entry(
     hass: core.HomeAssistant,
@@ -27,15 +28,6 @@ async def async_setup_entry(
     client = hass.data[DOMAIN]["client"]
     calendar_devices = []
     calendar = []
-    for i in range(0,100):
-        try:
-            a = client._children
-        except:
-            _LOGGER.debug(str(i)+" no client._children ... yet")
-        else:
-            _LOGGER.debug("Got client._children, breaking")
-            break
-        time.sleep(0.400)
     for i, child in enumerate(client._children):
         childid = child["id"]
         name = child["name"]

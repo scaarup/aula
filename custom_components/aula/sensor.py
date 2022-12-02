@@ -7,18 +7,21 @@ from datetime import datetime, timedelta
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant import config_entries, core
+from .client import Client
 
 _LOGGER = logging.getLogger(__name__)
 
 from homeassistant.const import (
     CONF_USERNAME,
-    CONF_PASSWORD,
+    CONF_PASSWORD
 )
 from .const import (
     CONF_SCHOOLSCHEDULE,
     CONF_UGEPLAN,
     DOMAIN,
 )
+
+PARALLEL_UPDATES = 1
 
 async def async_setup_entry(
     hass: core.HomeAssistant,
@@ -30,7 +33,7 @@ async def async_setup_entry(
 
     if config_entry.options:
         config.update(config_entry.options)
-    from .client import Client
+    #from .client import Client
     client  = Client(config[CONF_USERNAME], config[CONF_PASSWORD],config[CONF_SCHOOLSCHEDULE],config[CONF_UGEPLAN])
     hass.data[DOMAIN]["client"] = client
     
@@ -61,6 +64,17 @@ async def async_setup_entry(
                 entities.append(AulaSensor(hass, coordinator, child))
         else:
             entities.append(AulaSensor(hass, coordinator, child))
+    # We have data and can now set up the calendar platform:
+    if config[CONF_SCHOOLSCHEDULE]:
+        hass.async_create_task(
+            hass.config_entries.async_forward_entry_setup(config_entry, "calendar")
+        )
+    #
+    global ugeplan
+    if config[CONF_UGEPLAN]:
+        ugeplan = True
+    else:
+        ugeplan = False
     async_add_entities(entities,update_before_add=True)
 
 class AulaSensor(Entity):
@@ -103,15 +117,16 @@ class AulaSensor(Entity):
         attributes = {}
         #_LOGGER.debug("Dump of ugep_attr: "+str(self._client.ugep_attr))
         #_LOGGER.debug("Dump of ugepnext_attr: "+str(self._client.ugepnext_attr))
-        try:
-            attributes["ugeplan"] = self._client.ugep_attr[self._child["name"].split()[0]]
-        except:
-            attributes["ugeplan"] = "Not available"
-        try:
-            attributes["ugeplan_next"] = self._client.ugepnext_attr[self._child["name"].split()[0]]
-        except:
-            attributes["ugeplan_next"] = "Not available"
-            _LOGGER.debug("Could not get ugeplan for next week for child "+str(self._child["name"].split()[0])+". Perhaps not available yet or you have not enabled ugeplan")
+        if ugeplan:
+            try:
+                attributes["ugeplan"] = self._client.ugep_attr[self._child["name"].split()[0]]
+            except:
+                attributes["ugeplan"] = "Not available"
+            try:
+                attributes["ugeplan_next"] = self._client.ugepnext_attr[self._child["name"].split()[0]]
+            except:
+                attributes["ugeplan_next"] = "Not available"
+                _LOGGER.debug("Could not get ugeplan for next week for child "+str(self._child["name"].split()[0])+". Perhaps not available yet.")
         if self._client.presence[str(self._child["id"])] == 1:
             for attribute in fields:
                 if attribute == "exitTime" and daily_info[attribute] == "23:59:00":
