@@ -34,7 +34,6 @@ class Client:
         success = False
         url = ''
         while success == False and redirects < 10:
-            _LOGGER.debug(str(redirects)+" In the login loop...")
             html = BeautifulSoup(response.text, 'lxml')
             url = html.form['action']
             post_data = {}
@@ -50,15 +49,31 @@ class Client:
                 success = True
             redirects += 1
 
+        #self.apiurl = API+API_VERSION
+        # Find the API url in case of a version change
         self.apiurl = API+API_VERSION
-        ver = self._session.get(self.apiurl + "?method=profiles.getProfilesByLogin", verify=True)
-        self._profiles = ver.json()["data"]["profiles"]
+        apiver = int(API_VERSION)
+        api_success = False
+        while api_success == False:
+            _LOGGER.debug("Trying API at "+self.apiurl)
+            ver = self._session.get(self.apiurl + "?method=profiles.getProfilesByLogin", verify=True)
+            if ver.status_code == 410:
+                _LOGGER.warning("API was expected at "+self.apiurl+" but responded with HTTP 410.")
+                apiver += 1
+            elif ver.status_code == 200:
+                self._profiles = ver.json()["data"]["profiles"]
+                api_success = True
+            self.apiurl = API+str(apiver)
+        _LOGGER.debug("Found API on "+self.apiurl)
+        #
+
+        #ver = self._session.get(self.apiurl + "?method=profiles.getProfilesByLogin", verify=True)
+        #self._profiles = ver.json()["data"]["profiles"]
         self._profilecontext = self._session.get(self.apiurl + "?method=profiles.getProfileContext&portalrole=guardian", verify=True).json()['data']['institutionProfile']['relations']
         _LOGGER.debug("LOGIN: " + str(success))
+        _LOGGER.debug("Config - schoolschedule: "+str(self._schoolschedule)+", config - ugeplaner: "+str(self._ugeplan))
 
     def update_data(self):
-        _LOGGER.debug("Config, schoolschedule: "+str(self._schoolschedule))
-        _LOGGER.debug("Config, ugeplaner: "+str(self._ugeplan))
         is_logged_in = False
         if self._session:
             response = self._session.get(self.apiurl + "?method=profiles.getProfilesByLogin", verify=True).json()
@@ -106,7 +121,7 @@ class Client:
             _end = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=14)
             end = _end.strftime('%Y-%m-%d 00:00:00.0000%z')
             post_data = '{"instProfileIds":['+instProfileIds+'],"resourceIds":[],"start":"'+start+'","end":"'+end+'"}'
-            #_LOGGER.debug("Fetching calendars...")
+            _LOGGER.debug("Fetching calendars...")
             #_LOGGER.debug("Calendar post-data: "+str(post_data))
             res = self._session.post(self.apiurl + "?method=calendar.getEventsByProfileIdsAndResourceIds",data=post_data,headers=headers, verify=True)
             try:

@@ -5,7 +5,7 @@ Based on https://github.com/JBoye/HA-Aula
 from homeassistant.loader import async_get_integration
 import asyncio
 from homeassistant import config_entries, core
-from .const import DOMAIN, STARTUP, CONF_SCHOOLSCHEDULE
+from .const import DOMAIN, STARTUP
 import logging
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,9 +24,6 @@ async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.Conf
 
     hass.async_create_task(
         hass.config_entries.async_forward_entry_setup(entry, "sensor")
-    )
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "calendar")
     )
     return True
 
