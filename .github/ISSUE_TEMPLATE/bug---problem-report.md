@@ -7,12 +7,14 @@ assignees: scaarup
 
 ---
 
-**Describe the bug or problem**
+**Describe the bug or problem (In Danish is OK)**
 <!--
   A clear and concise description of what the bug is.
 -->
 
 **Please answer the following**
+- Version of integration:
+- Version of Home Assistant: 
 - [ ] I have more than one child
 - [ ] My children are attending different schools / institutions
 
