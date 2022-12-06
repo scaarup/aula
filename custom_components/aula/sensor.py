@@ -118,7 +118,7 @@ class AulaSensor(Entity):
         #_LOGGER.debug("Dump of ugep_attr: "+str(self._client.ugep_attr))
         #_LOGGER.debug("Dump of ugepnext_attr: "+str(self._client.ugepnext_attr))
         if ugeplan:
-            if self._client.huskelisten == 1:
+            if "0062" in self._client.widgets:
                 try:
                     attributes["huskelisten"] = self._client.huskeliste[self._child["name"].split()[0]]
                 except:

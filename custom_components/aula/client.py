@@ -12,13 +12,12 @@ from .const import API, API_VERSION, MIN_UDDANNELSE_API, MEEBOOK_API, SYSTEMATIC
 
 _LOGGER = logging.getLogger(__name__)
 class Client:
-    meebook = 0
-    minuddannelse = 0
-    huskelisten = 0
     huskeliste = {}
     presence = {}
     ugep_attr = {}
     ugepnext_attr = {}
+    widgets = {}
+    tokens = {}
     def __init__(self, username, password, schoolschedule, ugeplan):
         self._username = username
         self._password = password
@@ -51,7 +50,6 @@ class Client:
                 success = True
             redirects += 1
 
-        #self.apiurl = API+API_VERSION
         # Find the API url in case of a version change
         self.apiurl = API+API_VERSION
         apiver = int(API_VERSION)
@@ -60,7 +58,7 @@ class Client:
             _LOGGER.debug("Trying API at "+self.apiurl)
             ver = self._session.get(self.apiurl + "?method=profiles.getProfilesByLogin", verify=True)
             if ver.status_code == 410:
-                _LOGGER.warning("API was expected at "+self.apiurl+" but responded with HTTP 410.")
+                _LOGGER.warning("API was expected at "+self.apiurl+" but responded with HTTP 410. The integration will automatically try a newer version and everything may work fine.")
                 apiver += 1
             elif ver.status_code == 200:
                 self._profiles = ver.json()["data"]["profiles"]
@@ -75,6 +73,23 @@ class Client:
         _LOGGER.debug("LOGIN: " + str(success))
         _LOGGER.debug("Config - schoolschedule: "+str(self._schoolschedule)+", config - ugeplaner: "+str(self._ugeplan))
 
+    def get_widgets(self):
+        detected_widgets = self._session.get(self.apiurl + "?method=profiles.getProfileContext", verify=True).json()["data"]["moduleWidgetConfiguration"]["widgetConfigurations"]
+        for widget in detected_widgets:
+            widgetid = str(widget["widget"]["widgetId"])
+            widgetname = widget["widget"]["name"]
+            self.widgets[widgetid] = widgetname
+        _LOGGER.debug("Widgets found: "+str(self.widgets))
+
+    def get_token(self,widgetid,mock=False):
+        _LOGGER.debug("Requesting token for widget "+widgetid)
+        if mock:
+            return "MockToken"
+        self._bearertoken = self._session.get(self.apiurl + "?method=aulaToken.getAulaToken&widgetId="+widgetid, verify=True).json()["data"]
+        token = "Bearer "+str(self._bearertoken)
+        self.tokens[widgetid] = token
+        return token
+        
     def update_data(self):
         is_logged_in = False
         if self._session:
@@ -132,49 +147,25 @@ class Client:
             except:
                _LOGGER.warn("Got the following reply when trying to fetch calendars: "+str(res.text))
         # End of calendar
+
         # Ugeplaner:
         if self._ugeplan == True:
             guardian = self._session.get(self.apiurl + "?method=profiles.getProfileContext&portalrole=guardian", verify=True).json()["data"]["userId"]
             #_LOGGER.debug("guardian :"+str(guardian))
             childUserIds = ",".join(self._childuserids)
-            widgets = self._session.get(self.apiurl + "?method=profiles.getProfileContext", verify=True).json()["data"]["moduleWidgetConfiguration"]["widgetConfigurations"]
-            #_LOGGER.debug("widgetId "+str(widgets))
-
-            for widget in widgets:
-                widgetid = str(widget["widget"]["widgetId"])
-                widgetname = widget["widget"]["name"]
-                _LOGGER.debug("Detected widget "+widgetid+" "+str(widgetname))
-                if widgetid == "0004":
-                    _LOGGER.debug("Detected the Meebook widget")
-                    self.meebook = 1
-                    continue
-                if widgetid == "0029":
-                    _LOGGER.debug("Detected Min Uddannelse widget")
-                    self.minuddannelse = 1
-                    continue
-                if widgetid == "0062":
-                    _LOGGER.debug("Detected Huskelisten widget")
-                    self.huskelisten = 1
-                    continue
-            if self.meebook == 0 and self.minuddannelse == 0:
+            
+            if len(self.widgets) == 0:
+                self.get_widgets()
+            if not "0029" in self.widgets and not "0004" in self.widgets:
                 _LOGGER.error("You have enabled ugeplaner, but we cannot find them in Aula.")
-            if self.meebook == 1 and self.minuddannelse == 1:
+            if "0029" in self.widgets and "0004" in self.widgets:
                 _LOGGER.error("Multiple sources for ugeplaner is not supported yet.")
 
-            def getToken(widgetid,mock=False):
-                _LOGGER.debug("Requesting token for widget "+widgetid)
-                if mock:
-                    return "MockToken"
-                self._bearertoken = self._session.get(self.apiurl + "?method=aulaToken.getAulaToken&widgetId="+widgetid, verify=True).json()["data"]
-                token = "Bearer "+str(self._bearertoken)
-                return token
-
             def ugeplan(week,thisnext):
-                #self.meebook = 1
-                if self.minuddannelse == 1:
-                    token = getToken("0029")
+                if "0029" in self.widgets:
+                    token = self.get_token("0029")
                     get_payload = '/ugebrev?assuranceLevel=2&childFilter='+childUserIds+'&currentWeekNumber='+week+'&isMobileApp=false&placement=narrow&sessionUUID='+guardian+'&userProfile=guardian'
-                    ugeplaner = self._session.get(MIN_UDDANNELSE_API + get_payload, headers={"Authorization":token, "accept":"application/json"}, verify=True)
+                    ugeplaner = requests.get(MIN_UDDANNELSE_API + get_payload, headers={"Authorization":token, "accept":"application/json"}, verify=True)
                     #_LOGGER.debug("ugeplaner status_code "+str(ugeplaner.status_code))
                     #_LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
                     for person in ugeplaner.json()["personer"]:
@@ -184,10 +175,9 @@ class Client:
                         elif thisnext == "next":
                             self.ugepnext_attr[person["navn"].split()[0]] = ugeplan
 
-                #self.huskelisten = 1
-                if self.huskelisten == 1:
+                if "0062" in self.widgets:
                     _LOGGER.debug("In the Huskelisten flow...")
-                    token = getToken("0062", True)
+                    token = self.get_token("0062", True)
                     headers = {
                         "accept": "application/json",
                         "Aula-Authorization": token,
@@ -231,10 +221,10 @@ class Client:
                         self.huskeliste[name] = huskel
                        
                 # End Huskelisten
-                if self.meebook == 1:
+                if "0004" in self.widgets:
                     # Try Meebook:
                     _LOGGER.debug("In the Meebook flow...")
-                    token = getToken("0004")
+                    token = self.get_token("0004")
                     #_LOGGER.debug("Token "+token)
                     headers = {
                         "authority": "app.meebook.com",
@@ -250,7 +240,6 @@ class Client:
                     childFilter = "&childFilter[]=".join(self._childuserids)
                     institutionFilter = "&institutionFilter[]=".join(self._institutionProfiles)
                     get_payload = '/relatedweekplan/all?currentWeekNumber='+week+'&userProfile=guardian&childFilter[]='+childFilter+'&institutionFilter[]='+institutionFilter
-                    #_LOGGER.debug("get_payload: "+get_payload)
                     
                     mock_meebook = 0
                     if mock_meebook == 1:
