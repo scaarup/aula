@@ -216,7 +216,10 @@ class Client:
                         data = json.loads(mock_huskelisten, strict=False)
                     else:
                         response = requests.get(SYSTEMATIC_API + get_payload, headers=huskelisten_headers, verify=True)
-                        data = json.loads(response.text, strict=False)
+                        try:
+                            data = json.loads(response.text, strict=False)
+                        except:
+                            _LOGGER.error("Could not parse the response from Huskelisten as json.")
                         _LOGGER.debug("Huskelisten raw response: "+str(response.text))
 
                     for person in data:
