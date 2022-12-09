@@ -62,6 +62,7 @@ class Client:
                 apiver += 1
             elif ver.status_code == 200:
                 self._profiles = ver.json()["data"]["profiles"]
+                _LOGGER.debug("self._profiles "+str(self._profiles))
                 api_success = True
             self.apiurl = API+str(apiver)
         _LOGGER.debug("Found API on "+self.apiurl)
@@ -156,10 +157,10 @@ class Client:
             
             if len(self.widgets) == 0:
                 self.get_widgets()
-            if not "0029" in self.widgets and not "0004" in self.widgets:
-                _LOGGER.error("You have enabled ugeplaner, but we cannot find them in Aula.")
+            if not "0029" in self.widgets and not "0004" in self.widgets and not "0062" in self.widgets:
+                _LOGGER.error("You have enabled ugeplaner, but we cannot find any matching widgets (0029,0004) in Aula.")
             if "0029" in self.widgets and "0004" in self.widgets:
-                _LOGGER.error("Multiple sources for ugeplaner is not supported yet.")
+                _LOGGER.warning("Multiple sources for ugeplaner is untested and might cause problems.")
 
             def ugeplan(week,thisnext):
                 if "0029" in self.widgets:
@@ -178,20 +179,34 @@ class Client:
                 if "0062" in self.widgets:
                     _LOGGER.debug("In the Huskelisten flow...")
                     token = self.get_token("0062", True)
-                    headers = {
-                        "accept": "application/json",
+                    _LOGGER.debug("Huskelisten token: "+str(token))
+                    huskelisten_headers = {
+                        "Accept": "application/json, text/plain, */*",
+                        "Accept-Encoding": "gzip, deflate, br",
+                        "Accept-Language": "en-US,en;q=0.9,da;q=0.8",
                         "Aula-Authorization": token,
-                        "zone": "Europe/Copenhagen",
-                        "origin": "https://www.aula.dk",
-                        "referer": "https://www.aula.dk/"
-                    }                   
+                        "Cache-Control": "no-cache",
+                        "Origin": "https://www.aula.dk",
+                        "Pragma": "no-cache",
+                        "Referer": "https://www.aula.dk/",
+                        "Sec-Fetch-Dest": "empty",
+                        "Sec-Fetch-Mode": "cors",
+                        "Sec-Fetch-Site": "cross-site",
+                        "User-Agent": "Mozilla/5.0 (X11; CrOS x86_64 15183.51.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
+                        "sec-ch-ua": 'Not?A_Brand";v="8", "Chromium";v="108", "Google Chrome";v="108',
+                        "sec-ch-ua-mobile": "?0",
+                        "sec-ch-ua-platform": "Chrome OS",
+                        "zone": "Europe/Copenhagen"
+                    }
+#/api/aula/reminders/v1?children=karl6204&children=andr81e9&children=vega0860&from=2022-11-29&dueNoLaterThan=2023-05-29&widgetVersion=1.10&userProfile=guardian&sessionId=soer8596&institutions=751017&institutions=G19870&institutions=281260                    
+#         /reminders/v1?children=karl6204&children=andr81e9&children=vega0860&from=2022-12-08&dueNoLaterThan=2023-06-06&widgetVersion=1.10&userProfile=guardian&sessionId=soer8596&institutions=751017&institutions=751017&institutions=G19870
                     children = "&children=".join(self._childuserids)
                     institutions = "&institutions=".join(self._institutionProfiles)
                     timedelta = datetime.datetime.now() + datetime.timedelta(days=180)
                     From = datetime.datetime.now().strftime('%Y-%m-%d')
                     dueNoLaterThan = timedelta.strftime("%Y-%m-%d")
                     get_payload = '/reminders/v1?children='+children+'&from='+From+'&dueNoLaterThan='+dueNoLaterThan+'&widgetVersion=1.10&userProfile=guardian&sessionId='+self._username+'&institutions='+institutions
-                    _LOGGER.debug("Huskelisten get_payload: "+get_payload)
+                    _LOGGER.debug("Huskelisten get_payload: "+SYSTEMATIC_API+get_payload)
                     #
                     mock_huskelisten = 0
                     #
@@ -200,7 +215,7 @@ class Client:
                         mock_huskelisten = '[{"userName":"Emilie efternavn","userId":164625,"courseReminders":[],"assignmentReminders":[],"teamReminders":[{"id":76169,"institutionName":"Holme Skole","institutionId":183,"dueDate":"2022-11-29T23:00:00Z","teamId":65240,"teamName":"2A","reminderText":"Onsdagslektie: Matematikfessor.dk: Sænk skibet med plus.","createdBy":"Peter ","lastEditBy":"Peter ","subjectName":"Matematik"},{"id":76598,"institutionName":"Holme Skole","institutionId":183,"dueDate":"2022-12-06T23:00:00Z","teamId":65240,"teamName":"2A","reminderText":"Julekalender på Skoledu.dk: I skal forsøge at løse dagens kalenderopgave. opgaven kan også godt løses dagen efter.","createdBy":"Peter ","lastEditBy":"Peter Riis","subjectName":"Matematik"},{"id":76599,"institutionName":"Holme Skole","institutionId":183,"dueDate":"2022-12-13T23:00:00Z","teamId":65240,"teamName":"2A","reminderText":"Julekalender på Skoledu.dk: I skal forsøge at løse dagens kalenderopgave. opgaven kan også godt løses dagen efter.","createdBy":"Peter ","lastEditBy":"Peter ","subjectName":"Matematik"},{"id":76600,"institutionName":"Holme Skole","institutionId":183,"dueDate":"2022-12-20T23:00:00Z","teamId":65240,"teamName":"2A","reminderText":"Julekalender på Skoledu.dk: I skal forsøge at løse dagens kalenderopgave. opgaven kan også godt løses dagen efter.","createdBy":"Peter Riis","lastEditBy":"Peter Riis","subjectName":"Matematik"}]},{"userName":"Karla","userId":77882,"courseReminders":[],"assignmentReminders":[{"id":0,"institutionName":"Holme Skole","institutionId":183,"dueDate":"2022-12-08T11:00:00Z","courseId":297469,"teamNames":["5A","5B"],"teamIds":[65271,65258],"courseSubjects":[],"assignmentId":5027904,"assignmentText":"Skriv en novelle"}],"teamReminders":[{"id":76367,"institutionName":"Holme Skole","institutionId":183,"dueDate":"2022-11-30T23:00:00Z","teamId":65258,"teamName":"5A","reminderText":"Læse resten af kap.1 fra Ternet Ninja ( kopiark) Læs det hele højt eller vælg et afsnit. ","createdBy":"Christina ","lastEditBy":"Christina ","subjectName":"Dansk"}]},{"userName":"Vega  ","userId":206597,"courseReminders":[],"assignmentReminders":[],"teamReminders":[]}]'
                         data = json.loads(mock_huskelisten, strict=False)
                     else:
-                        response = requests.get(SYSTEMATIC_API + get_payload, headers=headers, verify=True)
+                        response = requests.get(SYSTEMATIC_API + get_payload, headers=huskelisten_headers, verify=True)
                         data = json.loads(response.text, strict=False)
                         _LOGGER.debug("Huskelisten raw response: "+str(response.text))
 
