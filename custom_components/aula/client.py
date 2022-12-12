@@ -119,7 +119,8 @@ class Client:
                 self._childids.append(str(child["id"]))
                 self._childuserids.append(str(child["userId"]))
             for institutioncode in profile["institutionProfiles"]:
-                self._institutionProfiles.append(str(institutioncode["institutionCode"]))
+                if str(institutioncode["institutionCode"]) not in self._institutionProfiles:
+                    self._institutionProfiles.append(str(institutioncode["institutionCode"]))
         _LOGGER.debug("Child ids and names: "+str(self._childnames))
         _LOGGER.debug("Child ids and institution names: "+str(self._institutions))
         _LOGGER.debug("Institution codes: "+str(self._institutionProfiles))
