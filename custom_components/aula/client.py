@@ -241,6 +241,8 @@ class Client:
                                 huskel = huskel+"af "+reminder["createdBy"]+"<br><br>"
                                 content = re.sub(r"([0-9]+)(\.)", r"\1\.", reminder["reminderText"])
                                 huskel = huskel+content+"<br><br>"
+                        else:
+                            huskel = huskel+str(name)+" har ingen påmindelser."
                         self.huskeliste[name] = huskel
                        
                 # End Huskelisten
