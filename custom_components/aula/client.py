@@ -209,7 +209,7 @@ class Client:
                     From = datetime.datetime.now().strftime('%Y-%m-%d')
                     dueNoLaterThan = timedelta.strftime("%Y-%m-%d")
                     #get_payload = '/reminders/v1?children='+children+'&from='+From+'&dueNoLaterThan='+dueNoLaterThan+'&widgetVersion=1.10&userProfile=guardian&sessionId='+self._username+'&institutions='+institutions
-                    get_payload = '/reminders/v1?children=karl6204&children=andr81e9&children=vega0860&from=2022-12-08&dueNoLaterThan=2023-06-06&widgetVersion=1.10&userProfile=guardian&sessionId=soer8596&institutions=751017&institutions=751017&institutions=G19870'
+                    get_payload = '/reminders/v1?children=karl6204&children=andr81e9&children=vega0860&from=2022-11-29&dueNoLaterThan=2023-05-29&widgetVersion=1.10&userProfile=guardian&sessionId=soer8596&institutions=751017&institutions=G19870&institutions=281260'
                     _LOGGER.debug("Huskelisten get_payload: "+SYSTEMATIC_API+get_payload)
                     #
                     mock_huskelisten = 0
