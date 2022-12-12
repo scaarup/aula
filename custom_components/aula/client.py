@@ -9,6 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 import json, re
 from .const import API, API_VERSION, MIN_UDDANNELSE_API, MEEBOOK_API, SYSTEMATIC_API
+from homeassistant.exceptions import ConfigEntryNotReady
 
 _LOGGER = logging.getLogger(__name__)
 class Client:
@@ -61,11 +62,12 @@ class Client:
                 _LOGGER.warning("API was expected at "+self.apiurl+" but responded with HTTP 410. The integration will automatically try a newer version and everything may work fine.")
                 apiver += 1
             if ver.status_code == 403:
-                _LOGGER.error("Access to Aula API was denied. Please check that you have entered the correct credentials.")
-                break
+                msg = "Access to Aula API was denied. Please check that you have entered the correct credentials."
+                _LOGGER.error(msg)
+                raise ConfigEntryNotReady(msg)
             elif ver.status_code == 200:
                 self._profiles = ver.json()["data"]["profiles"]
-                _LOGGER.debug("self._profiles "+str(self._profiles))
+                #_LOGGER.debug("self._profiles "+str(self._profiles))
                 api_success = True
             self.apiurl = API+str(apiver)
         _LOGGER.debug("Found API on "+self.apiurl)
@@ -184,26 +186,22 @@ class Client:
 
                 if "0062" in self.widgets:
                     _LOGGER.debug("In the Huskelisten flow...")
-                    token = self.get_token("0062", True)
+                    token = self.get_token("0062", False)
                     _LOGGER.debug("Huskelisten token: "+str(token))
                     huskelisten_headers = {
                         "Accept": "application/json, text/plain, */*",
                         "Accept-Encoding": "gzip, deflate, br",
                         "Accept-Language": "en-US,en;q=0.9,da;q=0.8",
                         "Aula-Authorization": token,
-                        "Cache-Control": "no-cache",
                         "Origin": "https://www.aula.dk",
-                        "Pragma": "no-cache",
                         "Referer": "https://www.aula.dk/",
                         "Sec-Fetch-Dest": "empty",
                         "Sec-Fetch-Mode": "cors",
                         "Sec-Fetch-Site": "cross-site",
                         "User-Agent": "Mozilla/5.0 (X11; CrOS x86_64 15183.51.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
-                        "sec-ch-ua": 'Not?A_Brand";v="8", "Chromium";v="108", "Google Chrome";v="108',
-                        "sec-ch-ua-mobile": "?0",
-                        "sec-ch-ua-platform": "Chrome OS",
                         "zone": "Europe/Copenhagen"
                     }
+
 #/api/aula/reminders/v1?children=karl6204&children=andr81e9&children=vega0860&from=2022-11-29&dueNoLaterThan=2023-05-29&widgetVersion=1.10&userProfile=guardian&sessionId=soer8596&institutions=751017&institutions=G19870&institutions=281260                    
 #         /reminders/v1?children=karl6204&children=andr81e9&children=vega0860&from=2022-12-08&dueNoLaterThan=2023-06-06&widgetVersion=1.10&userProfile=guardian&sessionId=soer8596&institutions=751017&institutions=751017&institutions=G19870
                     children = "&children=".join(self._childuserids)

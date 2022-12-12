@@ -7,7 +7,7 @@ This is a custom component for Home Assistant to integrate Aula. It is very much
 - Installable and updatable via HACS
 - UI config flow
 - School schedules as Home Assistant calendars
-- "Ugeplaner" from "Min Uddannelse" and "Meebook"
+- "Ugeplaner/Ugenoter" from "Min Uddannelse" and "Meebook"
 
   We save "ugeplaner" as sensor attributes "ugeplan" and "ugeplan_next". Can be rendered like:
   ```
