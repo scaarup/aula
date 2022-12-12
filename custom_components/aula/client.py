@@ -236,7 +236,7 @@ class Client:
                             for reminder in reminders:
                                 mytime = datetime.datetime.strptime(reminder["dueDate"],"%Y-%m-%dT%H:%M:%SZ")
                                 ftime = mytime.strftime('%A %d. %B')
-                                huskel = huskel+"<h2>"+ftime+"</h2>"
+                                huskel = huskel+"<h3>"+ftime+"</h3>"
                                 huskel = huskel+"<b>"+reminder["subjectName"]+"</b><br>"
                                 huskel = huskel+"af "+reminder["createdBy"]+"<br><br>"
                                 content = re.sub(r"([0-9]+)(\.)", r"\1\.", reminder["reminderText"])
