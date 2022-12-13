@@ -7,25 +7,28 @@ This is a custom component for Home Assistant to integrate Aula. It is very much
 - Installable and updatable via HACS
 - UI config flow
 - School schedules as Home Assistant calendars
-- "Ugeplaner" from "Min Uddannelse" and "Meebook"
+- "Ugeplaner/Ugenoter" from "Min Uddannelse" and "Meebook"
+- "Huskelisten" from "Systematic"
 
-  We save "ugeplaner" as sensor attributes "ugeplan" and "ugeplan_next". Can be rendered like:
-  ```
+  "Ugeplaner/ugenoter/huskelisten" are stored as sensor attributes. Can be rendered like:
+
+  ```yaml
   {{ state_attr("sensor.hojelse_skole_emilie", "ugeplan") }}
   ```
   
   And visualized in your dashboard with the markdown card:
 
-  ```
+  ```yaml
   type: markdown
   content: '{{ state_attr("sensor.hojelse_skole_emilie", "ugeplan") }}'
   title: Ugeplan for Emilie
   ```
+
   Another example using vertical-stack and collapsable-cards:
   
   ![image](https://user-images.githubusercontent.com/8055470/200306258-1c9e98ff-75d9-4111-994c-a69833e40c61.png)
 
-```
+```yaml
 type: vertical-stack
 cards:
   - type: custom:collapsable-cards
@@ -51,6 +54,7 @@ cards:
 ```
 
    ![image](https://user-images.githubusercontent.com/8055470/199254249-3bf441bc-7dce-4f5d-a809-d119d20a7b2b.png)
+
 - Lots of small fixes and optimizations
 
 ## Installation
