@@ -1,4 +1,4 @@
-[![Current Release](https://img.shields.io/github/release/scaarup/aula/all.svg?style=plastic)](https://github.com/scaarup/aula/releases) [![Github All Releases](https://img.shields.io/github/downloads/scaarup/aula/total.svg?style=plastic)](https://github.com/scaarup/aula/releases) [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=plastic)](https://github.com/scaarup/aula)
+[![Current Release](https://img.shields.io/github/release/scaarup/aula/all.svg?style=plastic)](https://github.com/scaarup/aula/releases) [![Github All Releases](https://img.shields.io/github/downloads/scaarup/aula/total.svg?style=plastic)](https://github.com/scaarup/aula/releases) [![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=plastic)](https://github.com/hacs/integration)
 
 # Aula
 
@@ -59,9 +59,9 @@ cards:
 
 ## Installation
 
-### HACS
+#### HACS
 
-- Add https://github.com/scaarup/aula as a custom repository
+- Ensure that HACS is installed.
 - Search for and install the "Aula" integration.
 - Restart Home Assistant.
 
@@ -72,6 +72,9 @@ cards:
 - Restart Home Assistant.
 
 ## Setup
+
+Shortcut:<br>
+[![](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=aula)
 
 - Go to Settings -> Integrations -> Add Integration
 - Search for "Aula" and follow the instructions in the config flow.
