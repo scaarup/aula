@@ -84,4 +84,4 @@ Shortcut:<br>
 - The config flow does not currently support a reconfiguration. Meaning when your password expires, the integration must be deleted and added again, in order to update the password.
 
 ## Support
-Join our Discord https://discord.gg/w2vmXavY and feel free to ask in #homeassistant
+Join our Discord https://discord.gg/SnfRg3DWG6 and feel free to ask in #homeassistant
