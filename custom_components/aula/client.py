@@ -19,6 +19,8 @@ class Client:
     ugepnext_attr = {}
     widgets = {}
     tokens = {}
+    #unread_messages = 0
+    #message = {}
     def __init__(self, username, password, schoolschedule, ugeplan):
         self._username = username
         self._password = password
@@ -137,6 +139,21 @@ class Client:
                 _LOGGER.warn("Unable to retrieve presence data from Aula from child with id "+str(child["id"])+". Some data will be missing from sensor entities.")
                 self.presence[str(child["id"])] = 0
         _LOGGER.debug("Child ids and presence data status: "+str(self.presence))
+
+        # Messages:
+        mesres = self._session.get(self.apiurl + "?method=messaging.getThreads&sortOn=date&orderDirection=desc&page=0", verify=True)
+        self.unread_messages = 0
+        self.message = {}
+        for mes in mesres.json()["data"]["threads"]:
+            if not mes["read"]:
+                self.unread_messages = 1
+                self.message["subject"] = mes["subject"]
+                try:
+                    self.message["text"] = mes["latestMessage"]["text"]["html"]
+                except:
+                    self.message["text"] = mes["latestMessage"]["text"]
+                break
+        _LOGGER.debug("Unread Aula message: "+str(self.unread_messages))
 
         # Calendar:
         if self._schoolschedule == True:
