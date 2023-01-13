@@ -19,8 +19,7 @@ class Client:
     ugepnext_attr = {}
     widgets = {}
     tokens = {}
-    #unread_messages = 0
-    #message = {}
+    
     def __init__(self, username, password, schoolschedule, ugeplan):
         self._username = username
         self._password = password
@@ -153,7 +152,6 @@ class Client:
                 except:
                     self.message["text"] = mes["latestMessage"]["text"]
                 break
-        _LOGGER.debug("Unread Aula message: "+str(self.unread_messages))
 
         # Calendar:
         if self._schoolschedule == True:

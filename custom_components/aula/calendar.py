@@ -39,6 +39,7 @@ class CalendarDevice(CalendarEntity):
         self.data = CalendarData(hass,calendar,childid)
         self._cal_data = {}
         self._name = "Skoleskema "+name
+        self._childid = childid
 
     @property
     def event(self):
@@ -49,6 +50,12 @@ class CalendarDevice(CalendarEntity):
     def name(self):
         """Return the name of the entity."""
         return self._name
+
+    @property
+    def unique_id(self):
+        unique_id = "aulacalendar"+str(self._childid)
+        _LOGGER.debug("Unique ID for calendar "+str(self._childid)+" "+unique_id)
+        return unique_id
 
     def update(self):
         """Update all Calendars."""
