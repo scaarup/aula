@@ -19,7 +19,7 @@ class Client:
     ugepnext_attr = {}
     widgets = {}
     tokens = {}
-    
+
     def __init__(self, username, password, schoolschedule, ugeplan):
         self._username = username
         self._password = password
@@ -146,12 +146,16 @@ class Client:
         for mes in mesres.json()["data"]["threads"]:
             if not mes["read"]:
                 self.unread_messages = 1
-                self.message["subject"] = mes["subject"]
-                try:
-                    self.message["text"] = mes["latestMessage"]["text"]["html"]
-                except:
-                    self.message["text"] = mes["latestMessage"]["text"]
+                threadid = mes["id"]
                 break
+        if self.unread_messages == 1:
+            _LOGGER.debug("tid "+str(threadid))
+            threadres = self._session.get(self.apiurl + "?method=messaging.getMessagesForThread&threadId="+str(threadid)+"&page=0", verify=True)
+            for message in threadres.json()["data"]["messages"]:
+                self.message["text"] = message["text"]["html"]
+                self.message["sender"] = message["sender"]["fullName"]
+                break
+            self.message["subject"] = threadres.json()["data"]["subject"]
 
         # Calendar:
         if self._schoolschedule == True:
