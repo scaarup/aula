@@ -17,6 +17,7 @@ async def async_setup_entry(hass: core.HomeAssistant, config_entry: config_entri
     else:
         subject = ""
         text = ""
+        sender= ""
 
     sensors = []
     device = AulaBinarySensor(hass=hass, unread=client.unread_messages, subject=subject, text=text, sender=sender)
