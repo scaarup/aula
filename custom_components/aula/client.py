@@ -152,7 +152,14 @@ class Client:
             _LOGGER.debug("tid "+str(threadid))
             threadres = self._session.get(self.apiurl + "?method=messaging.getMessagesForThread&threadId="+str(threadid)+"&page=0", verify=True)
             for message in threadres.json()["data"]["messages"]:
-                self.message["text"] = message["text"]["html"]
+                try:
+                    self.message["text"] = message["text"]["html"]
+                except:
+                    try:
+                        self.message["text"] = message["text"]
+                    except:
+                        self.message["text"] = "Could not get message"
+                        _LOGGER.warning("There is an unread message, but we cannot get the text.")
                 self.message["sender"] = message["sender"]["fullName"]
                 break
             self.message["subject"] = threadres.json()["data"]["subject"]
