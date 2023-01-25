@@ -169,7 +169,7 @@ class Client:
                 self.message["subject"] = threadres.json()["data"]["subject"]
             except:
                 self.message["subject"] = ""
-            _LOGGER.debug("Full dump of Aula messages: "+str(threadres))
+            _LOGGER.debug("Full dump of Aula messages: "+str(threadres.text))
 
         # Calendar:
         if self._schoolschedule == True:
