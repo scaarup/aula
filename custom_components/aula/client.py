@@ -158,11 +158,18 @@ class Client:
                     try:
                         self.message["text"] = message["text"]
                     except:
-                        self.message["text"] = "Could not get message"
+                        self.message["text"] = ""
                         _LOGGER.warning("There is an unread message, but we cannot get the text.")
-                self.message["sender"] = message["sender"]["fullName"]
+                try:
+                    self.message["sender"] = message["sender"]["fullName"]
+                except:
+                    self.message["sender"] = ""
                 break
-            self.message["subject"] = threadres.json()["data"]["subject"]
+            try:
+                self.message["subject"] = threadres.json()["data"]["subject"]
+            except:
+                self.message["subject"] = ""
+            _LOGGER.debug("Full dump of Aula messages: "+str(threadres))
 
         # Calendar:
         if self._schoolschedule == True:
