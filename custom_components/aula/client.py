@@ -152,24 +152,26 @@ class Client:
             _LOGGER.debug("tid "+str(threadid))
             threadres = self._session.get(self.apiurl + "?method=messaging.getMessagesForThread&threadId="+str(threadid)+"&page=0", verify=True)
             for message in threadres.json()["data"]["messages"]:
-                try:
-                    self.message["text"] = message["text"]["html"]
-                except:
+                if message["messageType"] == "Message":
                     try:
-                        self.message["text"] = message["text"]
+                        self.message["text"] = message["text"]["html"]
                     except:
-                        self.message["text"] = ""
-                        _LOGGER.warning("There is an unread message, but we cannot get the text.")
+                        try:
+                            self.message["text"] = message["text"]
+                        except:
+                            self.message["text"] = "intet indhold..."
+                            _LOGGER.warning("There is an unread message, but we cannot get the text.")
+                    try:
+                        self.message["sender"] = message["sender"]["fullName"]
+                    except:
+                        self.message["sender"] = "Ukendt afsender"
+                    break
                 try:
-                    self.message["sender"] = message["sender"]["fullName"]
+                    self.message["subject"] = threadres.json()["data"]["subject"]
                 except:
-                    self.message["sender"] = ""
+                    self.message["subject"] = ""
                 break
-            try:
-                self.message["subject"] = threadres.json()["data"]["subject"]
-            except:
-                self.message["subject"] = ""
-            _LOGGER.debug("Full dump of Aula messages: "+str(threadres.text))
+            #_LOGGER.debug("Full dump of Aula messages: "+str(threadres.text))
 
         # Calendar:
         if self._schoolschedule == True:
