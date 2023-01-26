@@ -8,6 +8,7 @@ This is a custom component for Home Assistant to integrate Aula. It is very much
 - UI config flow
 - School schedules as Home Assistant calendars
 - "Ugeplaner/Ugenoter" from "Min Uddannelse" and "Meebook"
+- Messages - if there are unread messages, we turn a binary sensor on and populate it with the message details.
 - "Huskelisten" from "Systematic"
 
   "Ugeplaner/ugenoter/huskelisten" are stored as sensor attributes. Can be rendered like:
