@@ -152,10 +152,26 @@ class Client:
             _LOGGER.debug("tid "+str(threadid))
             threadres = self._session.get(self.apiurl + "?method=messaging.getMessagesForThread&threadId="+str(threadid)+"&page=0", verify=True)
             for message in threadres.json()["data"]["messages"]:
-                self.message["text"] = message["text"]["html"]
-                self.message["sender"] = message["sender"]["fullName"]
+                if message["messageType"] == "Message":
+                    try:
+                        self.message["text"] = message["text"]["html"]
+                    except:
+                        try:
+                            self.message["text"] = message["text"]
+                        except:
+                            self.message["text"] = "intet indhold..."
+                            _LOGGER.warning("There is an unread message, but we cannot get the text.")
+                    try:
+                        self.message["sender"] = message["sender"]["fullName"]
+                    except:
+                        self.message["sender"] = "Ukendt afsender"
+                    break
+                try:
+                    self.message["subject"] = threadres.json()["data"]["subject"]
+                except:
+                    self.message["subject"] = ""
                 break
-            self.message["subject"] = threadres.json()["data"]["subject"]
+            #_LOGGER.debug("Full dump of Aula messages: "+str(threadres.text))
 
         # Calendar:
         if self._schoolschedule == True:
