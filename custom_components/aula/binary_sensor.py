@@ -11,9 +11,18 @@ async def async_setup_entry(hass: core.HomeAssistant, config_entry: config_entri
 
     client = hass.data[DOMAIN]["client"]
     if client.unread_messages == 1:
-        subject = client.message["subject"]
-        text = client.message["text"]
-        sender = client.message["sender"]
+        try:
+            subject = client.message["subject"]
+        except:
+            subject = ""
+        try:
+            text = client.message["text"]
+        except:
+            text = ""
+        try:
+            sender = client.message["sender"]
+        except:
+            sender = ""
     else:
         subject = ""
         text = ""
