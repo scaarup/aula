@@ -2,6 +2,7 @@ from datetime import timedelta
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant import config_entries, core
+from homeassistant.util import Throttle
 import logging
 
 from .const import DOMAIN
