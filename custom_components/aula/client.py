@@ -153,7 +153,7 @@ class Client:
                 break
         #if self.unread_messages == 1:
         if unread == 1:
-            _LOGGER.debug("tid "+str(threadid))
+            #_LOGGER.debug("tid "+str(threadid))
             threadres = self._session.get(self.apiurl + "?method=messaging.getMessagesForThread&threadId="+str(threadid)+"&page=0", verify=True)
             #_LOGGER.debug("threadres "+str(threadres.text))
             for message in threadres.json()["data"]["messages"]:
