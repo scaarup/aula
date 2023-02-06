@@ -2,14 +2,13 @@ from datetime import timedelta
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant import config_entries, core
-from homeassistant.util import Throttle
+#from homeassistant.util import Throttle
 import logging
 
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
-MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=10)
-PARALLEL_UPDATES = 1
+SCAN_INTERVAL = timedelta(seconds=600.0)
 
 async def async_setup_entry(hass: core.HomeAssistant, config_entry: config_entries.ConfigEntry, async_add_entities):
 
@@ -76,7 +75,6 @@ class AulaBinarySensor(BinarySensorEntity, RestoreEntity):
         if self._state == 0:
             return False
 
-    @Throttle(MIN_TIME_BETWEEN_UPDATES)
     def update(self):
         if self._client.unread_messages == 1:
             _LOGGER.debug("There are unread message(s)")
