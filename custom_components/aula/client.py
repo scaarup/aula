@@ -141,6 +141,7 @@ class Client:
 
         # Messages:
         mesres = self._session.get(self.apiurl + "?method=messaging.getThreads&sortOn=date&orderDirection=desc&page=0", verify=True)
+        _LOGGER.debug("mesres "+str(mesres.text))
         self.unread_messages = 0
         self.message = {}
         for mes in mesres.json()["data"]["threads"]:
@@ -151,6 +152,7 @@ class Client:
         if self.unread_messages == 1:
             _LOGGER.debug("tid "+str(threadid))
             threadres = self._session.get(self.apiurl + "?method=messaging.getMessagesForThread&threadId="+str(threadid)+"&page=0", verify=True)
+            _LOGGER.debug("threadres "+str(threadres.text))
             for message in threadres.json()["data"]["messages"]:
                 if message["messageType"] == "Message":
                     try:
