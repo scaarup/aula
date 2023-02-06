@@ -8,7 +8,7 @@ import logging
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
-SCAN_INTERVAL = timedelta(seconds=600.0)
+SCAN_INTERVAL = timedelta(seconds=300.0)
 
 async def async_setup_entry(hass: core.HomeAssistant, config_entry: config_entries.ConfigEntry, async_add_entities):
 
@@ -78,7 +78,7 @@ class AulaBinarySensor(BinarySensorEntity, RestoreEntity):
     def update(self):
         if self._client.unread_messages == 1:
             _LOGGER.debug("There are unread message(s)")
-            _LOGGER.debug("Latest message: "+str(self._client.message))
+            #_LOGGER.debug("Latest message: "+str(self._client.message))
             self._subject = self._client.message["subject"]
             self._text = self._client.message["text"]
             self._sender = self._client.message["sender"]
