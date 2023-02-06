@@ -76,20 +76,13 @@ class AulaBinarySensor(BinarySensorEntity, RestoreEntity):
         if self._client.unread_messages == 1:
             _LOGGER.debug("There are unread message(s)")
             _LOGGER.debug("Latest message: "+str(self._client.message))
-            try:
-                self._subject = self._client.message["subject"]
-                self._text = self._client.message["text"]
-                self._sender = self._client.message["sender"]
-                self._state = 1
-            except:
-                _LOGGER.debug("There are NO unread messages")
-                self._state = 0
-                self._subject = ""
-                self._text = ""
-                self._sender = ""
+            self._subject = self._client.message["subject"]
+            self._text = self._client.message["text"]
+            self._sender = self._client.message["sender"]
+            self._state = 1
         else:
-                _LOGGER.debug("There are NO unread messages")
-                self._state = 0
-                self._subject = ""
-                self._text = ""
-                self._sender = ""
+            _LOGGER.debug("There are NO unread messages")
+            self._state = 0
+            self._subject = ""
+            self._text = ""
+            self._sender = ""
