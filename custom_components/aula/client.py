@@ -141,16 +141,21 @@ class Client:
 
         # Messages:
         mesres = self._session.get(self.apiurl + "?method=messaging.getThreads&sortOn=date&orderDirection=desc&page=0", verify=True)
+        #_LOGGER.debug("mesres "+str(mesres.text))
         self.unread_messages = 0
+        unread = 0
         self.message = {}
         for mes in mesres.json()["data"]["threads"]:
             if not mes["read"]:
-                self.unread_messages = 1
+                #self.unread_messages = 1
+                unread = 1
                 threadid = mes["id"]
                 break
-        if self.unread_messages == 1:
-            _LOGGER.debug("tid "+str(threadid))
+        #if self.unread_messages == 1:
+        if unread == 1:
+            #_LOGGER.debug("tid "+str(threadid))
             threadres = self._session.get(self.apiurl + "?method=messaging.getMessagesForThread&threadId="+str(threadid)+"&page=0", verify=True)
+            #_LOGGER.debug("threadres "+str(threadres.text))
             for message in threadres.json()["data"]["messages"]:
                 if message["messageType"] == "Message":
                     try:
@@ -165,12 +170,12 @@ class Client:
                         self.message["sender"] = message["sender"]["fullName"]
                     except:
                         self.message["sender"] = "Ukendt afsender"
+                    try:
+                        self.message["subject"] = threadres.json()["data"]["subject"]
+                    except:
+                        self.message["subject"] = ""
+                    self.unread_messages = 1
                     break
-                try:
-                    self.message["subject"] = threadres.json()["data"]["subject"]
-                except:
-                    self.message["subject"] = ""
-                break
             #_LOGGER.debug("Full dump of Aula messages: "+str(threadres.text))
 
         # Calendar:
