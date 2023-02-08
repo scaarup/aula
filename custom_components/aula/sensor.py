@@ -118,6 +118,7 @@ class AulaSensor(Entity):
     def extra_state_attributes(self):
         if self._client.presence[str(self._child["id"])] == 1:
             daily_info = self._client._daily_overview[str(self._child["id"])]
+            profilePicture = daily_info["institutionProfile"]["profilePicture"]["url"]
         fields = ['location', 'sleepIntervals', 'checkInTime', 'checkOutTime', 'activityType', 'entryTime', 'exitTime', 'exitWith', 'comment', 'spareTimeActivity', 'selfDeciderStartTime', 'selfDeciderEndTime']
         attributes = {}
         #_LOGGER.debug("Dump of ugep_attr: "+str(self._client.ugep_attr))
@@ -146,6 +147,7 @@ class AulaSensor(Entity):
                         attributes[attribute] = datetime.strptime(daily_info[attribute], "%H:%M:%S").strftime("%H:%M")
                     except:
                         attributes[attribute] = daily_info[attribute]
+            attributes["profilePicture"] = profilePicture
         return attributes
 
     @property
