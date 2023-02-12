@@ -5,7 +5,6 @@ Based on https://github.com/JBoye/HA-Aula
 import logging
 import requests
 import datetime
-import requests
 from bs4 import BeautifulSoup
 import json, re
 from .const import API, API_VERSION, MIN_UDDANNELSE_API, MEEBOOK_API, SYSTEMATIC_API
