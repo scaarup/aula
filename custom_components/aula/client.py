@@ -29,7 +29,47 @@ class Client:
     def login(self):
         _LOGGER.debug("Logging in")
         self._session = requests.Session()
-        response = self._session.get('https://login.aula.dk/auth/login.php?type=unilogin', verify=True)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/112.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'da,en-US;q=0.7,en;q=0.3',
+            'DNT': '1',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+        }
+        params = {
+            'type': 'unilogin',
+        }
+        response = self._session.get('https://login.aula.dk/auth/login.php', params=params, headers=headers, verify=True)
+
+        _html = BeautifulSoup(response.text, 'lxml')
+        _url = _html.form['action']
+        headers = {
+            'Host': 'broker.unilogin.dk',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/112.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'da,en-US;q=0.7,en;q=0.3',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Origin': 'null',
+            'DNT': '1',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'same-origin',
+            'Sec-Fetch-User': '?1',
+        }
+        data = {
+            'selectedIdp': 'uni_idp',
+        }
+        response = self._session.post(
+            _url,
+            headers=headers,
+            data=data,
+            verify=True,
+        )
 
         user_data = { 'username': self._username, 'password': self._password, 'selected-aktoer': "KONTAKT" }
         redirects = 0
@@ -38,6 +78,7 @@ class Client:
         while success == False and redirects < 10:
             html = BeautifulSoup(response.text, 'lxml')
             url = html.form['action']
+            
             post_data = {}
             for input in html.find_all('input'):
                 if(input.has_attr('name') and input.has_attr('value')):
