@@ -1,6 +1,6 @@
 {
-    "name": "Aula",
     "domain": "aula",
+    "name": "Aula",
     "after_dependencies": [
         "http"
     ],
