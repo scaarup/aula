@@ -1,8 +1,8 @@
 {
     "name": "Aula",
     "country": "DK",
-    "render_readme": true,
+    "filename": "aula.zip",
     "homeassistant": "2022.9.0",
-    "zip_release": true,
-    "filename": "aula.zip"
+    "render_readme": true,
+    "zip_release": true
 }
