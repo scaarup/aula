@@ -3,8 +3,10 @@ Based on https://github.com/JBoye/HA-Aula
 """
 from .const import DOMAIN
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 import voluptuous as vol
+from typing import Final
+from homeassistant.util import dt as dt_util
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers import config_validation as cv, entity_platform
@@ -20,15 +22,27 @@ from homeassistant.const import (
 from .const import (
     CONF_SCHOOLSCHEDULE,
     CONF_UGEPLAN,
-    DOMAIN,
+    DOMAIN
 )
 
-LIST_MEEBOOK_EVENTS_SERVICE_NAME = "list_meebook_events"
-LIST_MEEBOOK_EVENTS_SCHEMA = {
-    vol.Required("start"): vol.Any(cv.date, cv.datetime),
-    vol.Required("end"): vol.Any(cv.date, cv.datetime),
-}
+EVENT_START_DATE = "start_date"
+EVENT_END_DATE = "end_date"
+EVENT_DURATION = "duration"
 
+LIST_MEEBOOK_EVENTS_SERVICE_NAME = "list_meebook_events"
+LIST_MEEBOOK_EVENTS_SCHEMA: Final = vol.All(
+    cv.has_at_least_one_key(EVENT_END_DATE, EVENT_DURATION),
+    cv.has_at_most_one_key(EVENT_END_DATE, EVENT_DURATION),
+    cv.make_entity_service_schema(
+        {
+            vol.Optional(EVENT_START_DATE): cv.date,
+            vol.Optional(EVENT_END_DATE): cv.date,
+            vol.Optional(EVENT_DURATION): vol.All(
+                cv.time_period, cv.positive_timedelta
+            ),
+        }
+    ),
+)
 
 PARALLEL_UPDATES = 1
 
@@ -94,25 +108,24 @@ async def async_setup_entry(
 
     # Set up services
     platform = entity_platform.async_get_current_platform()
-    async def meebook_list_events(call: core.ServiceCall) -> core.ServiceResponse:
+    async def meebook_list_events_service(service_call: core.ServiceCall) -> core.ServiceResponse:
         """Search in the date range and return the matching items."""
-        # items = await my_client.search(call.data["start"], call.data["end"])
+        start = service_call.data.get(EVENT_START_DATE, dt_util.now().date())
+        if EVENT_DURATION in service_call.data:
+            end = start + service_call.data[EVENT_DURATION]
+        else:
+            end = service_call.data[EVENT_END_DATE]
 
-        sensors = await platform.async_extract_from_service(call)
+        sensors = await platform.async_extract_from_service(service_call)
         sensor = sensors[0]
 
-        name = sensor._child["name"].split()[0]
-        try:
-            plan = sensor._client.meebook_weekplan[name]
-            return plan
-        except:
-            return {}
+        return await sensor.async_get_meebook_weekplan(start, end)
 
     hass.services.async_register(
         DOMAIN,
         LIST_MEEBOOK_EVENTS_SERVICE_NAME,
-        meebook_list_events,
-        schema=cv.make_entity_service_schema(LIST_MEEBOOK_EVENTS_SCHEMA),
+        meebook_list_events_service,
+        schema=LIST_MEEBOOK_EVENTS_SCHEMA,
         supports_response=core.SupportsResponse.ONLY,
     )
 
@@ -209,6 +222,16 @@ class AulaSensor(Entity):
     @property
     def icon(self):
         return 'mdi:account-school'
+
+    async def async_get_meebook_weekplan (
+        self, start_date: date, end_date: date
+    ):
+        name = self._child["name"]
+        try:
+            plan = self._client.meebook_weekplan[name]
+            return {"entries": {day: tasks for day, tasks in plan.items() if day >= start_date and day <= end_date and len(tasks["tasks"]) > 0 }}
+        except:
+            return {}
 
     async def async_update(self):
         """Update the entity. Only used by the generic entity update service."""

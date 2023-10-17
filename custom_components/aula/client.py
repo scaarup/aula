@@ -257,9 +257,9 @@ class Client:
 
             def ugeplan(week,thisnext):
 
-                def set_meebook_weekplan_attr(person, weekplan_data):
+                def set_meebook_weekplan_attr(person_name, weekplan_data):
                     # Convert to datetime from strings like "mandag 2. okt." (Don't use setLocale as it will affect all of HA)
-                    def datetime_from_meebook_str(str):
+                    def date_from_meebook_str(str):
                         monthsArr = [
                             "jan",
                             "feb",
@@ -274,7 +274,7 @@ class Client:
                             "nov",
                             "dec",
                         ]
-                        today = datetime.datetime.now()
+                        today = datetime.date.today()
                         date_re = re.search("[a-z]* (\d*)\. ([a-z]*)\.", str)
                         dayInMonth = int(date_re.group(1))
                         month = monthsArr.index(date_re.group(2)) + 1
@@ -286,8 +286,7 @@ class Client:
                         return datetime.date(year, month, dayInMonth)
 
                     for day in weekplan_data:
-                        # day["date"] = datetime_from_meebook_str(day["date"])
-                        dt = datetime_from_meebook_str(day["date"])
+                        dt = date_from_meebook_str(day["date"])
 
                         # clean up fields
                         for task in day["tasks"]:
@@ -295,8 +294,8 @@ class Client:
                             del task["editUrl"]
 
                         dt_dict = self.meebook_weekplan.setdefault(
-                            person, {}
-                        ).setdefault(dt, {})
+                            person_name, {}
+                                ).setdefault(dt, {})
                         dt_dict["tasks"] = day["tasks"]
 
                 if "0029" in self.widgets:
@@ -424,7 +423,7 @@ class Client:
                         elif thisnext == "next":
                             self.ugepnext_attr[name] = ugep
 
-                        set_meebook_weekplan_attr(name, person["weekPlan"])
+                        set_meebook_weekplan_attr(person["name"], person["weekPlan"])
 
             now = datetime.datetime.now() + datetime.timedelta(weeks=1)
             thisweek = datetime.datetime.now().strftime('%Y-W%W')

@@ -1,0 +1,16 @@
+list_meebook_events:
+  target:
+    entity:
+      domain: sensor
+  fields:
+    start_date:
+      example: "2022-03-22"
+      selector:
+        date:
+    end_date:
+      example: "2022-03-22"
+      selector:
+        date:
+    duration:
+      selector:
+        duration:
