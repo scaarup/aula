@@ -4,8 +4,10 @@ Based on https://github.com/JBoye/HA-Aula
 from .const import DOMAIN
 import logging
 from datetime import datetime, timedelta
+import voluptuous as vol
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant import config_entries, core
 from .client import Client
 
@@ -20,6 +22,13 @@ from .const import (
     CONF_UGEPLAN,
     DOMAIN,
 )
+
+LIST_MEEBOOK_EVENTS_SERVICE_NAME = "list_meebook_events"
+LIST_MEEBOOK_EVENTS_SCHEMA = {
+    vol.Required("start"): vol.Any(cv.date, cv.datetime),
+    vol.Required("end"): vol.Any(cv.date, cv.datetime),
+}
+
 
 PARALLEL_UPDATES = 1
 
@@ -36,7 +45,7 @@ async def async_setup_entry(
     #from .client import Client
     client  = Client(config[CONF_USERNAME], config[CONF_PASSWORD],config[CONF_SCHOOLSCHEDULE],config[CONF_UGEPLAN])
     hass.data[DOMAIN]["client"] = client
-    
+
 
     async def async_update_data():
         client = hass.data[DOMAIN]["client"]
@@ -52,7 +61,7 @@ async def async_setup_entry(
 
     # Immediate refresh
     await coordinator.async_request_refresh()
-    
+
     entities = []
     client = hass.data[DOMAIN]["client"]
     await hass.async_add_executor_job(client.update_data)
@@ -81,6 +90,33 @@ async def async_setup_entry(
     else:
         ugeplan = False
     async_add_entities(entities,update_before_add=True)
+
+
+    # Set up services
+    platform = entity_platform.async_get_current_platform()
+    async def meebook_list_events(call: core.ServiceCall) -> core.ServiceResponse:
+        """Search in the date range and return the matching items."""
+        # items = await my_client.search(call.data["start"], call.data["end"])
+
+        sensors = await platform.async_extract_from_service(call)
+        sensor = sensors[0]
+
+        name = sensor._child["name"].split()[0]
+        try:
+            plan = sensor._client.meebook_weekplan[name]
+            return plan
+        except:
+            return {}
+
+    hass.services.async_register(
+        DOMAIN,
+        LIST_MEEBOOK_EVENTS_SERVICE_NAME,
+        meebook_list_events,
+        schema=cv.make_entity_service_schema(LIST_MEEBOOK_EVENTS_SCHEMA),
+        supports_response=core.SupportsResponse.ONLY,
+    )
+
+
 
 class AulaSensor(Entity):
     def __init__(self, hass, coordinator, child) -> None:
@@ -169,7 +205,7 @@ class AulaSensor(Entity):
         unique_id = "aula"+str(self._child["id"])
         _LOGGER.debug("Unique ID for child "+str(self._child["id"])+" "+unique_id)
         return unique_id
-    
+
     @property
     def icon(self):
         return 'mdi:account-school'

@@ -16,6 +16,7 @@ class Client:
     presence = {}
     ugep_attr = {}
     ugepnext_attr = {}
+    meebook_weekplan = {}
     widgets = {}
     tokens = {}
 
@@ -78,7 +79,7 @@ class Client:
         while success == False and redirects < 10:
             html = BeautifulSoup(response.text, 'lxml')
             url = html.form['action']
-            
+
             post_data = {}
             for input in html.find_all('input'):
                 if(input.has_attr('name') and input.has_attr('value')):
@@ -136,7 +137,7 @@ class Client:
         token = "Bearer "+str(self._bearertoken)
         self.tokens[widgetid] = token
         return token
-        
+
     def update_data(self):
         is_logged_in = False
         if self._session:
@@ -167,7 +168,7 @@ class Client:
         _LOGGER.debug("Child ids and names: "+str(self._childnames))
         _LOGGER.debug("Child ids and institution names: "+str(self._institutions))
         _LOGGER.debug("Institution codes: "+str(self._institutionProfiles))
-        
+
         self._daily_overview = {}
         for i, child in enumerate(self._children):
             response = self._session.get(self.apiurl + "?method=presence.getDailyOverview&childIds[]=" + str(child["id"]), verify=True).json()
@@ -246,7 +247,7 @@ class Client:
         if self._ugeplan == True:
             guardian = self._session.get(self.apiurl + "?method=profiles.getProfileContext&portalrole=guardian", verify=True).json()["data"]["userId"]
             childUserIds = ",".join(self._childuserids)
-            
+
             if len(self.widgets) == 0:
                 self.get_widgets()
             if not "0029" in self.widgets and not "0004" in self.widgets and not "0062" in self.widgets:
@@ -255,6 +256,49 @@ class Client:
                 _LOGGER.warning("Multiple sources for ugeplaner is untested and might cause problems.")
 
             def ugeplan(week,thisnext):
+
+                def set_meebook_weekplan_attr(person, weekplan_data):
+                    # Convert to datetime from strings like "mandag 2. okt." (Don't use setLocale as it will affect all of HA)
+                    def datetime_from_meebook_str(str):
+                        monthsArr = [
+                            "jan",
+                            "feb",
+                            "mar",
+                            "apr",
+                            "maj",
+                            "jun",
+                            "jul",
+                            "aug",
+                            "sep",
+                            "okt",
+                            "nov",
+                            "dec",
+                        ]
+                        today = datetime.datetime.now()
+                        date_re = re.search("[a-z]* (\d*)\. ([a-z]*)\.", str)
+                        dayInMonth = int(date_re.group(1))
+                        month = monthsArr.index(date_re.group(2)) + 1
+                        year = (
+                            today.year + 1
+                            if today.month == 12 and month == 1
+                            else today.year
+                        )
+                        return datetime.date(year, month, dayInMonth)
+
+                    for day in weekplan_data:
+                        # day["date"] = datetime_from_meebook_str(day["date"])
+                        dt = datetime_from_meebook_str(day["date"])
+
+                        # clean up fields
+                        for task in day["tasks"]:
+                            task["subject"] = task.pop("pill")
+                            del task["editUrl"]
+
+                        dt_dict = self.meebook_weekplan.setdefault(
+                            person, {}
+                        ).setdefault(dt, {})
+                        dt_dict["tasks"] = day["tasks"]
+
                 if "0029" in self.widgets:
                     token = self.get_token("0029")
                     get_payload = '/ugebrev?assuranceLevel=2&childFilter='+childUserIds+'&currentWeekNumber='+week+'&isMobileApp=false&placement=narrow&sessionUUID='+guardian+'&userProfile=guardian'
@@ -324,7 +368,7 @@ class Client:
                         else:
                             huskel = huskel+str(name)+" har ingen påmindelser."
                         self.huskeliste[name] = huskel
-                       
+
                 # End Huskelisten
                 if "0004" in self.widgets:
                     # Try Meebook:
@@ -345,7 +389,7 @@ class Client:
                     childFilter = "&childFilter[]=".join(self._childuserids)
                     institutionFilter = "&institutionFilter[]=".join(self._institutionProfiles)
                     get_payload = '/relatedweekplan/all?currentWeekNumber='+week+'&userProfile=guardian&childFilter[]='+childFilter+'&institutionFilter[]='+institutionFilter
-                    
+
                     mock_meebook = 0
                     if mock_meebook == 1:
                         _LOGGER.warning("Using mock data for Meebook ugeplaner.")
@@ -355,7 +399,7 @@ class Client:
                         response = requests.get(MEEBOOK_API + get_payload, headers=headers, verify=True)
                         data = json.loads(response.text, strict=False)
                         #_LOGGER.debug("Meebook ugeplan raw response from week "+week+": "+str(response.text))
-                    
+
                     for person in data:
                         _LOGGER.debug("Meebook ugeplan for "+person["name"])
                         ugep = ''
@@ -379,6 +423,8 @@ class Client:
                             self.ugep_attr[name] = ugep
                         elif thisnext == "next":
                             self.ugepnext_attr[name] = ugep
+
+                        set_meebook_weekplan_attr(name, person["weekPlan"])
 
             now = datetime.datetime.now() + datetime.timedelta(weeks=1)
             thisweek = datetime.datetime.now().strftime('%Y-W%W')
