@@ -100,7 +100,7 @@ class Client:
             _LOGGER.debug("Trying API at "+self.apiurl)
             ver = self._session.get(self.apiurl + "?method=profiles.getProfilesByLogin", verify=True)
             if ver.status_code == 410:
-                _LOGGER.warning("API was expected at "+self.apiurl+" but responded with HTTP 410. The integration will automatically try a newer version and everything may work fine.")
+                _LOGGER.debug("API was expected at "+self.apiurl+" but responded with HTTP 410. The integration will automatically try a newer version and everything may work fine.")
                 apiver += 1
             if ver.status_code == 403:
                 msg = "Access to Aula API was denied. Please check that you have entered the correct credentials."
