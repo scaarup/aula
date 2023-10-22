@@ -8,15 +8,15 @@ import datetime
 from bs4 import BeautifulSoup
 import json, re
 from .const import API, API_VERSION, MIN_UDDANNELSE_API, MEEBOOK_API, SYSTEMATIC_API
+from . import helpers
 from homeassistant.exceptions import ConfigEntryNotReady
 
 _LOGGER = logging.getLogger(__name__)
 class Client:
     huskeliste = {}
     presence = {}
-    ugep_attr = {}
-    ugepnext_attr = {}
-    meebook_weekplan = {}
+    weekplans_html = {}     # child-name -> start-of-week-date -> html
+    meebook_weekplan = {}   # child-name -> date -> task[]
     widgets = {}
     tokens = {}
 
@@ -255,39 +255,11 @@ class Client:
             if "0029" in self.widgets and "0004" in self.widgets:
                 _LOGGER.warning("Multiple sources for ugeplaner is untested and might cause problems.")
 
-            def ugeplan(week,thisnext):
+            def set_ugeplans(week_start_date: datetime.date):
 
                 def set_meebook_weekplan_attr(person_name, weekplan_data):
-                    # Convert to datetime from strings like "mandag 2. okt." (Don't use setLocale as it will affect all of HA)
-                    def date_from_meebook_str(str):
-                        monthsArr = [
-                            "jan",
-                            "feb",
-                            "mar",
-                            "apr",
-                            "maj",
-                            "jun",
-                            "jul",
-                            "aug",
-                            "sep",
-                            "okt",
-                            "nov",
-                            "dec",
-                        ]
-                        today = datetime.date.today()
-                        date_re = re.search("[a-z]* (\d*)\. ([a-z]*)\.", str)
-                        dayInMonth = int(date_re.group(1))
-                        month = monthsArr.index(date_re.group(2)) + 1
-                        year = (
-                            today.year + 1
-                            if today.month == 12 and month == 1
-                            else today.year
-                        )
-                        return datetime.date(year, month, dayInMonth)
-
+                    dt = week_start_date
                     for day in weekplan_data:
-                        dt = date_from_meebook_str(day["date"])
-
                         # clean up fields
                         for task in day["tasks"]:
                             task["subject"] = task.pop("pill")
@@ -297,19 +269,20 @@ class Client:
                             person_name, {}
                                 ).setdefault(dt, {})
                         dt_dict["tasks"] = day["tasks"]
+                        dt = dt + datetime.timedelta(days=1)
+
+                week_and_year = week_start_date.strftime("%Y-W%W")
 
                 if "0029" in self.widgets:
                     token = self.get_token("0029")
-                    get_payload = '/ugebrev?assuranceLevel=2&childFilter='+childUserIds+'&currentWeekNumber='+week+'&isMobileApp=false&placement=narrow&sessionUUID='+guardian+'&userProfile=guardian'
+                    get_payload = f'/ugebrev?assuranceLevel=2&childFilter={childUserIds}&currentWeekNumber={week_and_year}&isMobileApp=false&placement=narrow&sessionUUID={guardian}&userProfile=guardian'
                     ugeplaner = requests.get(MIN_UDDANNELSE_API + get_payload, headers={"Authorization":token, "accept":"application/json"}, verify=True)
                     #_LOGGER.debug("ugeplaner status_code "+str(ugeplaner.status_code))
                     #_LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
                     for person in ugeplaner.json()["personer"]:
                         ugeplan = person["institutioner"][0]["ugebreve"][0]["indhold"]
-                        if thisnext == "this":
-                            self.ugep_attr[person["navn"].split()[0]] = ugeplan
-                        elif thisnext == "next":
-                            self.ugepnext_attr[person["navn"].split()[0]] = ugeplan
+                        name = person["navn"].split()[0]
+                        self.weekplans_html.setdefault(name, {})[week_start_date] = ugeplan
 
                 if "0062" in self.widgets:
                     _LOGGER.debug("In the Huskelisten flow...")
@@ -387,7 +360,7 @@ class Client:
                     }
                     childFilter = "&childFilter[]=".join(self._childuserids)
                     institutionFilter = "&institutionFilter[]=".join(self._institutionProfiles)
-                    get_payload = '/relatedweekplan/all?currentWeekNumber='+week+'&userProfile=guardian&childFilter[]='+childFilter+'&institutionFilter[]='+institutionFilter
+                    get_payload = f'/relatedweekplan/all?currentWeekNumber={week_and_year}&userProfile=guardian&childFilter[]={childFilter}&institutionFilter[]={institutionFilter}'
 
                     mock_meebook = 0
                     if mock_meebook == 1:
@@ -397,39 +370,40 @@ class Client:
                     else:
                         response = requests.get(MEEBOOK_API + get_payload, headers=headers, verify=True)
                         data = json.loads(response.text, strict=False)
-                        #_LOGGER.debug("Meebook ugeplan raw response from week "+week+": "+str(response.text))
+                        #_LOGGER.debug("Meebook ugeplan raw response from week "+week_and_year+": "+str(response.text))
 
                     for person in data:
                         _LOGGER.debug("Meebook ugeplan for "+person["name"])
-                        ugep = ''
+                        ugeplan_html = ''
                         ugeplan = person["weekPlan"]
                         for day in ugeplan:
-                            ugep = ugep+"<h3>"+day["date"]+"</h3>"
+                            ugeplan_html += f'<h3>{day["date"]}</h3>'
                             if len(day["tasks"]) > 0:
                                 for task in day["tasks"]:
                                     if not task["pill"] == "Ingen fag tilknyttet":
-                                        ugep = ugep+"<b>"+task["pill"]+"</b><br>"
-                                    ugep = ugep+task["author"]+"<br><br>"
+                                        ugeplan_html += f'<b>{task["pill"]}</b><br>'
+                                    ugeplan_html += f'{task["author"]}<br><br>'
                                     content = re.sub(r"([0-9]+)(\.)", r"\1\.", task["content"])
-                                    ugep = ugep+content+"<br><br>"
+                                    ugeplan_html += f'{content}<br><br>'
                             else:
-                                ugep = ugep+"-"
+                                ugeplan_html += "-"
                         try:
                             name = person["name"].split()[0]
                         except:
                             name = person["name"]
-                        if thisnext == "this":
-                            self.ugep_attr[name] = ugep
-                        elif thisnext == "next":
-                            self.ugepnext_attr[name] = ugep
+
+                        self.weekplans_html.setdefault(name, {})[week_start_date] = ugeplan_html
 
                         set_meebook_weekplan_attr(person["name"], person["weekPlan"])
 
-            now = datetime.datetime.now() + datetime.timedelta(weeks=1)
-            thisweek = datetime.datetime.now().strftime('%Y-W%W')
-            nextweek = now.strftime("%Y-W%W")
-            ugeplan(thisweek,"this")
-            ugeplan(nextweek,"next")
-            #_LOGGER.debug("End result of ugeplan object: "+str(self.ugep_attr))
+            week_start_date = helpers.get_this_week_start_date()
+            set_ugeplans(week_start_date)
+            set_ugeplans(week_start_date + datetime.timedelta(weeks=1))
+
+            # clean up old week-plans and meebook-weekplans
+            self.weekplans_html = {child: {date: plan for (date, plan) in plans_per_date.items() if date >= week_start_date} for (child, plans_per_date) in self.weekplans_html.items()}
+            self.meebook_weekplan = {child: {date: plan for (date, plan) in plans_per_date.items() if date >= week_start_date} for (child, plans_per_date) in self.meebook_weekplan.items()}
+
+            #_LOGGER.debug("End result of ugeplan object: "+str(self.weekplans_html))
         # End of Ugeplaner
         return True

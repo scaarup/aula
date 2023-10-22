@@ -12,6 +12,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant import config_entries, core
 from .client import Client
+from . import helpers
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -174,8 +175,7 @@ class AulaSensor(Entity):
 
         fields = ['location', 'sleepIntervals', 'checkInTime', 'checkOutTime', 'activityType', 'entryTime', 'exitTime', 'exitWith', 'comment', 'spareTimeActivity', 'selfDeciderStartTime', 'selfDeciderEndTime']
         attributes = {}
-        #_LOGGER.debug("Dump of ugep_attr: "+str(self._client.ugep_attr))
-        #_LOGGER.debug("Dump of ugepnext_attr: "+str(self._client.ugepnext_attr))
+        #_LOGGER.debug("Dump of weekplans_html: "+str(self._client.weekplans_html))
         if ugeplan:
             if "0062" in self._client.widgets:
                 try:
@@ -183,11 +183,11 @@ class AulaSensor(Entity):
                 except:
                     attributes["huskelisten"] = "Not available"
             try:
-                attributes["ugeplan"] = self._client.ugep_attr[self._child["name"].split()[0]]
+                attributes["ugeplan"] = self._client.weekplans_html[self._child["name"].split()[0]][helpers.get_this_week_start_date()]
             except:
                 attributes["ugeplan"] = "Not available"
             try:
-                attributes["ugeplan_next"] = self._client.ugepnext_attr[self._child["name"].split()[0]]
+                attributes["ugeplan"] = self._client.weekplans_html[self._child["name"].split()[0]][helpers.get_next_week_start_date()]
             except:
                 attributes["ugeplan_next"] = "Not available"
                 _LOGGER.debug("Could not get ugeplan for next week for child "+str(self._child["name"].split()[0])+". Perhaps not available yet.")
