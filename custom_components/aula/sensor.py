@@ -230,7 +230,22 @@ class AulaSensor(Entity):
         try:
             name = self._child["name"].split()[0]
             plan = self._client.meebook_weekplan[name]
-            return {"entries": {day: tasks for day, tasks in plan.items() if day >= start_date and day <= end_date and len(tasks["tasks"]) > 0 }}
+            result = {"entries": {day: tasks for day, tasks in plan.items() if day >= start_date and day <= end_date and len(tasks["tasks"]) > 0 }}
+
+            warnings = []
+            if len(plan) == 0:
+                warnings.append("No plan found")
+            else:
+                # check if data requested outside bounds of existing data
+                date_lower = min(plan.keys())
+                date_upper = max(plan.keys())
+                if start_date < date_lower or end_date > date_upper:
+                    warnings.append(f"Start or end date is outside available data range: {date_lower} - {date_upper}")
+
+            if len(warnings) > 0:
+                result["warnings"] = warnings
+
+            return result
         except:
             return {}
 
