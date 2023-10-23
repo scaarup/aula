@@ -108,27 +108,28 @@ async def async_setup_entry(
 
 
     # Set up services
-    platform = entity_platform.async_get_current_platform()
-    async def meebook_list_events_service(service_call: core.ServiceCall) -> core.ServiceResponse:
-        """Search in the date range and return the matching items."""
-        start = service_call.data.get(EVENT_START_DATE, dt_util.now().date())
-        if EVENT_DURATION in service_call.data:
-            end = start + service_call.data[EVENT_DURATION]
-        else:
-            end = service_call.data[EVENT_END_DATE]
+    if len(client.meebook_weekplan) > 0:
+        platform = entity_platform.async_get_current_platform()
+        async def meebook_list_events_service(service_call: core.ServiceCall) -> core.ServiceResponse:
+            """Search in the date range and return the matching items."""
+            start = service_call.data.get(EVENT_START_DATE, dt_util.now().date())
+            if EVENT_DURATION in service_call.data:
+                end = start + service_call.data[EVENT_DURATION]
+            else:
+                end = service_call.data[EVENT_END_DATE]
 
-        sensors = await platform.async_extract_from_service(service_call)
-        sensor = sensors[0]
+            sensors = await platform.async_extract_from_service(service_call)
+            sensor = sensors[0]
 
-        return await sensor.async_get_meebook_weekplan(start, end)
+            return await sensor.async_get_meebook_weekplan(start, end)
 
-    hass.services.async_register(
-        DOMAIN,
-        LIST_MEEBOOK_EVENTS_SERVICE_NAME,
-        meebook_list_events_service,
-        schema=LIST_MEEBOOK_EVENTS_SCHEMA,
-        supports_response=core.SupportsResponse.ONLY,
-    )
+        hass.services.async_register(
+            DOMAIN,
+            LIST_MEEBOOK_EVENTS_SERVICE_NAME,
+            meebook_list_events_service,
+            schema=LIST_MEEBOOK_EVENTS_SCHEMA,
+            supports_response=core.SupportsResponse.ONLY,
+        )
 
 
 
