@@ -226,8 +226,8 @@ class AulaSensor(Entity):
     async def async_get_meebook_weekplan (
         self, start_date: date, end_date: date
     ):
-        name = self._child["name"]
         try:
+            name = self._child["name"].split()[0]
             plan = self._client.meebook_weekplan[name]
             return {"entries": {day: tasks for day, tasks in plan.items() if day >= start_date and day <= end_date and len(tasks["tasks"]) > 0 }}
         except:

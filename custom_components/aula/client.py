@@ -5,6 +5,7 @@ Based on https://github.com/JBoye/HA-Aula
 import logging
 import requests
 import datetime
+import copy
 from bs4 import BeautifulSoup
 import json, re
 from .const import API, API_VERSION, MIN_UDDANNELSE_API, MEEBOOK_API, SYSTEMATIC_API
@@ -257,20 +258,6 @@ class Client:
 
             def set_ugeplans(week_start_date: datetime.date):
 
-                def set_meebook_weekplan_attr(person_name, weekplan_data):
-                    dt = week_start_date
-                    for day in weekplan_data:
-                        # clean up fields
-                        for task in day["tasks"]:
-                            task["subject"] = task.pop("pill")
-                            del task["editUrl"]
-
-                        dt_dict = self.meebook_weekplan.setdefault(
-                            person_name, {}
-                                ).setdefault(dt, {})
-                        dt_dict["tasks"] = day["tasks"]
-                        dt = dt + datetime.timedelta(days=1)
-
                 week_and_year = week_start_date.strftime("%Y-W%W")
 
                 if "0029" in self.widgets:
@@ -374,6 +361,13 @@ class Client:
 
                     for person in data:
                         _LOGGER.debug("Meebook ugeplan for "+person["name"])
+
+                        try:
+                            name = person["name"].split()[0]
+                        except:
+                            name = person["name"]
+
+                        # Data for self.weekplans_html
                         ugeplan_html = ''
                         ugeplan = person["weekPlan"]
                         for day in ugeplan:
@@ -387,14 +381,20 @@ class Client:
                                     ugeplan_html += f'{content}<br><br>'
                             else:
                                 ugeplan_html += "-"
-                        try:
-                            name = person["name"].split()[0]
-                        except:
-                            name = person["name"]
-
                         self.weekplans_html.setdefault(name, {})[week_start_date] = ugeplan_html
 
-                        set_meebook_weekplan_attr(person["name"], person["weekPlan"])
+                        # Data for service "list_meebook_events"
+                        dt = week_start_date
+                        for day in ugeplan:
+                            tasks = copy.deepcopy(day["tasks"])
+                            # clean up fields
+                            for task in tasks:
+                                task["subject"] = task.pop("pill")
+                                del task["editUrl"]
+
+                            dt_dict = self.meebook_weekplan.setdefault(name, {}).setdefault(dt, {})
+                            dt_dict["tasks"] = tasks
+                            dt = dt + datetime.timedelta(days=1)
 
             week_start_date = helpers.get_this_week_start_date()
             set_ugeplans(week_start_date)
