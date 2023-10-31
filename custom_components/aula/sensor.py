@@ -3,11 +3,16 @@ Based on https://github.com/JBoye/HA-Aula
 """
 from .const import DOMAIN
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
+import voluptuous as vol
+from typing import Final
+from homeassistant.util import dt as dt_util
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant import config_entries, core
 from .client import Client
+from . import helpers
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,7 +23,26 @@ from homeassistant.const import (
 from .const import (
     CONF_SCHOOLSCHEDULE,
     CONF_UGEPLAN,
-    DOMAIN,
+    DOMAIN
+)
+
+EVENT_START_DATE = "start_date"
+EVENT_END_DATE = "end_date"
+EVENT_DURATION = "duration"
+
+LIST_MEEBOOK_EVENTS_SERVICE_NAME = "list_meebook_events"
+LIST_MEEBOOK_EVENTS_SCHEMA: Final = vol.All(
+    cv.has_at_least_one_key(EVENT_END_DATE, EVENT_DURATION),
+    cv.has_at_most_one_key(EVENT_END_DATE, EVENT_DURATION),
+    cv.make_entity_service_schema(
+        {
+            vol.Optional(EVENT_START_DATE): cv.date,
+            vol.Optional(EVENT_END_DATE): cv.date,
+            vol.Optional(EVENT_DURATION): vol.All(
+                cv.time_period, cv.positive_timedelta
+            ),
+        }
+    ),
 )
 
 PARALLEL_UPDATES = 1
@@ -36,7 +60,7 @@ async def async_setup_entry(
     #from .client import Client
     client  = Client(config[CONF_USERNAME], config[CONF_PASSWORD],config[CONF_SCHOOLSCHEDULE],config[CONF_UGEPLAN])
     hass.data[DOMAIN]["client"] = client
-    
+
 
     async def async_update_data():
         client = hass.data[DOMAIN]["client"]
@@ -52,7 +76,7 @@ async def async_setup_entry(
 
     # Immediate refresh
     await coordinator.async_request_refresh()
-    
+
     entities = []
     client = hass.data[DOMAIN]["client"]
     await hass.async_add_executor_job(client.update_data)
@@ -81,6 +105,33 @@ async def async_setup_entry(
     else:
         ugeplan = False
     async_add_entities(entities,update_before_add=True)
+
+
+    # Set up services
+    if len(client.meebook_weekplan) > 0:
+        platform = entity_platform.async_get_current_platform()
+        async def meebook_list_events_service(service_call: core.ServiceCall) -> core.ServiceResponse:
+            """Search in the date range and return the matching items."""
+            start = service_call.data.get(EVENT_START_DATE, dt_util.now().date())
+            if EVENT_DURATION in service_call.data:
+                end = start + service_call.data[EVENT_DURATION]
+            else:
+                end = service_call.data[EVENT_END_DATE]
+
+            sensors = await platform.async_extract_from_service(service_call)
+            sensor = sensors[0]
+
+            return await sensor.async_get_meebook_weekplan(start, end)
+
+        hass.services.async_register(
+            DOMAIN,
+            LIST_MEEBOOK_EVENTS_SERVICE_NAME,
+            meebook_list_events_service,
+            schema=LIST_MEEBOOK_EVENTS_SCHEMA,
+            supports_response=core.SupportsResponse.ONLY,
+        )
+
+
 
 class AulaSensor(Entity):
     def __init__(self, hass, coordinator, child) -> None:
@@ -125,8 +176,7 @@ class AulaSensor(Entity):
 
         fields = ['location', 'sleepIntervals', 'checkInTime', 'checkOutTime', 'activityType', 'entryTime', 'exitTime', 'exitWith', 'comment', 'spareTimeActivity', 'selfDeciderStartTime', 'selfDeciderEndTime']
         attributes = {}
-        #_LOGGER.debug("Dump of ugep_attr: "+str(self._client.ugep_attr))
-        #_LOGGER.debug("Dump of ugepnext_attr: "+str(self._client.ugepnext_attr))
+        #_LOGGER.debug("Dump of weekplans_html: "+str(self._client.weekplans_html))
         if ugeplan:
             if "0062" in self._client.widgets:
                 try:
@@ -134,11 +184,11 @@ class AulaSensor(Entity):
                 except:
                     attributes["huskelisten"] = "Not available"
             try:
-                attributes["ugeplan"] = self._client.ugep_attr[self._child["name"].split()[0]]
+                attributes["ugeplan"] = self._client.weekplans_html[self._child["name"].split()[0]][helpers.get_this_week_start_date()]
             except:
                 attributes["ugeplan"] = "Not available"
             try:
-                attributes["ugeplan_next"] = self._client.ugepnext_attr[self._child["name"].split()[0]]
+                attributes["ugeplan"] = self._client.weekplans_html[self._child["name"].split()[0]][helpers.get_next_week_start_date()]
             except:
                 attributes["ugeplan_next"] = "Not available"
                 _LOGGER.debug("Could not get ugeplan for next week for child "+str(self._child["name"].split()[0])+". Perhaps not available yet.")
@@ -169,10 +219,35 @@ class AulaSensor(Entity):
         unique_id = "aula"+str(self._child["id"])
         _LOGGER.debug("Unique ID for child "+str(self._child["id"])+" "+unique_id)
         return unique_id
-    
+
     @property
     def icon(self):
         return 'mdi:account-school'
+
+    async def async_get_meebook_weekplan (
+        self, start_date: date, end_date: date
+    ):
+        try:
+            name = self._child["name"].split()[0]
+            plan = self._client.meebook_weekplan[name]
+            result = {"entries": {day: tasks for day, tasks in plan.items() if day >= start_date and day <= end_date and len(tasks["tasks"]) > 0 }}
+
+            warnings = []
+            if len(plan) == 0:
+                warnings.append("No plan found")
+            else:
+                # check if data requested outside bounds of existing data
+                date_lower = min(plan.keys())
+                date_upper = max(plan.keys())
+                if start_date < date_lower or end_date > date_upper:
+                    warnings.append(f"Start or end date is outside available data range: {date_lower} - {date_upper}")
+
+            if len(warnings) > 0:
+                result["warnings"] = warnings
+
+            return result
+        except:
+            return {}
 
     async def async_update(self):
         """Update the entity. Only used by the generic entity update service."""
