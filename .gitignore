@@ -6,3 +6,12 @@ venv
 .idea
 .storage
 .DS_Store
+config/.HA_VERSION
+config/blueprints/
+config/home-assistant.log
+config/home-assistant.log.1
+config/home-assistant.log.fault
+config/home-assistant_v2.db
+config/home-assistant_v2.db-shm
+config/home-assistant_v2.db-wal
+skoleskema.json
