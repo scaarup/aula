@@ -1,43 +1,59 @@
 {
-    "config": {
-      "error": {
-        "1": "Unknown error",
-        "2": "Unknown error"
-      },
-      "step": {
-        "user": {
-          "data": {
-            "username": "Unilogin brugernavn",
-            "password": "Unilogin password",
-            "schoolschedule": "Tilføj skoleskemaer som kalender entiteter?",
-            "ugeplan": "Tilføj ugeplaner som sensor attributter?"
-          },
-          "description": "Indtast dine Unilogin oplysninger",
-          "title": "Login"
-        }
-      }
-    },
-    "options": {
-      "error": {
-        "1": "Unknown error"
-      },
-      "step": {
-        "user": {
-          "data": {
-            "username": "Unilogin brugernavn",
-            "password": "Unilogin password"
-          },
-          "description": "Indtast dine Unilogin oplysninger",
-          "title": "Login"
+  "services": {
+    "api_call": {
+      "name": "API Call",
+      "description": "Make a custom API call to Aula",
+      "fields": {
+        "uri": {
+          "name": "uri",
+          "description": "URI for the call"
         },
-        "options": {
-          "data": {
-            "schoolschedule": "Tilføj skoleskemaer som kalender entiteter?",
-            "ugeplan": "Tilføj ugeplaner som sensor attributter?"
-          },
-          "description": "",
-          "title": "Login"
+        "post_data": {
+          "name": "post_data",
+          "description": "JSON formatted post data, if not defined, request will be GET"
         }
       }
     }
+  },
+  "config": {
+    "error": {
+      "1": "Unknown error",
+      "2": "Unknown error"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "username": "Unilogin brugernavn",
+          "password": "Unilogin password",
+          "schoolschedule": "Tilføj skoleskemaer som kalender entiteter?",
+          "ugeplan": "Tilføj ugeplaner som sensor attributter?"
+        },
+        "description": "Indtast dine Unilogin oplysninger",
+        "title": "Login"
+      }
+    }
+  },
+  "options": {
+    "error": {
+      "1": "Unknown error"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "username": "Unilogin brugernavn",
+          "password": "Unilogin password"
+        },
+        "description": "Indtast dine Unilogin oplysninger",
+        "title": "Login"
+      },
+      "options": {
+        "data": {
+          "schoolschedule": "Tilføj skoleskemaer som kalender entiteter?",
+          "ugeplan": "Tilføj ugeplaner som sensor attributter?"
+        },
+        "description": "",
+        "title": "Login"
+      }
+    }
   }
+}
