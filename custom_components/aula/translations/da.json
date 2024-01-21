@@ -1,16 +1,16 @@
 {
   "services": {
     "api_call": {
-      "name": "API Call",
-      "description": "Make a custom API call to Aula",
+      "name": "API Kald",
+      "description": "Lav et custom API kald til Aula",
       "fields": {
         "uri": {
           "name": "uri",
-          "description": "URI for the call"
+          "description": "URI"
         },
         "post_data": {
           "name": "post_data",
-          "description": "JSON formatted post data, if not defined, request will be GET"
+          "description": "Post data i JSON format. Hvis ikke angivet, laver vi et GET request"
         }
       }
     }
