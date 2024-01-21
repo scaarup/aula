@@ -1,7 +1,3 @@
-"""
-Aula client
-Based on https://github.com/JBoye/HA-Aula
-"""
 import logging
 import requests
 import datetime
@@ -27,6 +23,36 @@ class Client:
         self._session = None
         self._schoolschedule = schoolschedule
         self._ugeplan = ugeplan
+
+    def custom_api_call(self, uri, post_data):
+        csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]
+        headers = {"csrfp-token": csrf_token, "content-type": "application/json"}
+        _LOGGER.debug("custom_api_call: Making API call to " + self.apiurl + uri)
+        if post_data == 0:
+            response = self._session.get(
+                self.apiurl + uri, headers=headers, verify=True
+            )
+        else:
+            try:
+                # Check if post_data is valid JSON
+                json.loads(post_data)
+            except json.JSONDecodeError as e:
+                _LOGGER.error("Invalid json supplied as post_data")
+                error_msg = {"result": "Fail - invalid json supplied as post_data"}
+                return error_msg
+            _LOGGER.debug("custom_api_call: post_data:" + post_data)
+            response = self._session.post(
+                self.apiurl + uri,
+                headers=headers,
+                json=json.loads(post_data),
+                verify=True,
+            )
+        _LOGGER.debug(response.text)
+        try:
+            res = response.json()
+        except:
+            res = {"raw_response": response.text}
+        return res
 
     def login(self):
         _LOGGER.debug("Logging in")
