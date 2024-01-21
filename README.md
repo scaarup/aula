@@ -2,7 +2,7 @@
 
 # Aula
 
-This is a custom component for Home Assistant to integrate Aula. It is very much based on the great work by @JBoye at https://github.com/JBoye/HA-Aula. However this "rewrite" comes with new features like:
+This is a custom component for Home Assistant to integrate Aula.
 
 - Installable and updatable via HACS
 - UI config flow
@@ -10,6 +10,7 @@ This is a custom component for Home Assistant to integrate Aula. It is very much
 - "Ugeplaner/Ugenoter" from "Min Uddannelse" and "Meebook"
 - Messages - if there are unread messages, we turn a binary sensor on and populate it with the message details.
 - "Huskelisten" from "Systematic"
+- Use the builtin service to interact directly with Aulas API.
 
   "Ugeplaner/ugenoter/huskelisten" are stored as sensor attributes. Can be rendered like:
 

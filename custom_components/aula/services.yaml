@@ -1,0 +1,22 @@
+api_call:
+  description: Make a custom API call to Aula
+  fields:
+    uri:
+      description: URI for the call
+      example: '?method=presence.updatePresenceTemplate'
+    post_data:
+      description: JSON formatted post data, if not defined, request will be GET
+      example: >
+        '{"institutionProfileId": 0000000,
+          "byDate": "2024-01-22",
+          "presenceActivity": {
+            "activityType": 1,
+            "selfDecider": {
+              "entryTime": null,
+              "exitStartTime": "15:00",
+              "exitEndTime": "15:30"
+            }
+          },
+          "comment": null,
+          "repeatTemplate": false,
+          "expiresAt": null}'

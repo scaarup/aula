@@ -1,43 +1,59 @@
 {
-    "config": {
-      "error": {
-        "1": "Unknown error",
-        "2": "Unknown error"
-      },
-      "step": {
-        "user": {
-          "data": {
-            "username": "Unilogin username",
-            "password": "Unilogin password",
-            "schoolschedule": "Add school schedules as calendar entities?",
-            "ugeplan": "Add ugeplaner as sensor attributes?"
-          },
-          "description": "Enter your Unilogin credentials",
-          "title": "Authentication"
-        }
-      }
-    },
-    "options": {
-      "error": {
-        "1": "Unknown error"
-      },
-      "step": {
-        "user": {
-          "data": {
-            "username": "Unilogin username",
-            "password": "Unilogin password"
-          },
-          "description": "Enter your Unilogin credentials",
-          "title": "Authentication"
+  "services": {
+    "api_call": {
+      "name": "API Call",
+      "description": "Make a custom API call to Aula",
+      "fields": {
+        "uri": {
+          "name": "uri",
+          "description": "URI for the call"
         },
-        "options": {
-          "data": {
-            "schoolschedule": "Add school schedules as calendar entities?",
-            "ugeplan": "Add ugeplaner as sensor attributes?"
-          },
-          "description": "",
-          "title": "Options"
+        "post_data": {
+          "name": "post_data",
+          "description": "JSON formatted post data, if not defined, request will be GET"
         }
       }
     }
+  },
+  "config": {
+    "error": {
+      "1": "Unknown error",
+      "2": "Unknown error"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "username": "Unilogin username",
+          "password": "Unilogin password",
+          "schoolschedule": "Add school schedules as calendar entities?",
+          "ugeplan": "Add ugeplaner as sensor attributes?"
+        },
+        "description": "Enter your Unilogin credentials",
+        "title": "Authentication"
+      }
+    }
+  },
+  "options": {
+    "error": {
+      "1": "Unknown error"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "username": "Unilogin username",
+          "password": "Unilogin password"
+        },
+        "description": "Enter your Unilogin credentials",
+        "title": "Authentication"
+      },
+      "options": {
+        "data": {
+          "schoolschedule": "Add school schedules as calendar entities?",
+          "ugeplan": "Add ugeplaner as sensor attributes?"
+        },
+        "description": "",
+        "title": "Options"
+      }
+    }
   }
+}
