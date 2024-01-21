@@ -7,7 +7,7 @@ api_call:
     post_data:
       description: JSON formatted post data, if not defined, request will be GET
       example: >
-        '{"institutionProfileId": XXXXXXX,
+        '{"institutionProfileId": 0000000,
           "byDate": "2024-01-22",
           "presenceActivity": {
             "activityType": 1,
