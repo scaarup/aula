@@ -400,6 +400,28 @@ class Client:
                         elif thisnext == "next":
                             self.ugepnext_attr[person["navn"].split()[0]] = ugeplan
 
+                if "0030" in self.widgets:
+                    _LOGGER.debug("In the MU Opgaver flow")
+                    token = self.get_token("0030")
+                    get_payload = (
+                        "/opgaveliste?assuranceLevel=2&childFilter="
+                        + childUserIds
+                        + "&currentWeekNumber="
+                        + week
+                        + "&isMobileApp=false&placement=narrow&sessionUUID="
+                        + guardian
+                        + "&userProfile=guardian"
+                    )
+                    ugeplaner = requests.get(
+                        MIN_UDDANNELSE_API + get_payload,
+                        headers={"Authorization": token, "accept": "application/json"},
+                        verify=True,
+                    )
+                    _LOGGER.debug(
+                        "MU Opgaver status_code " + str(ugeplaner.status_code)
+                    )
+                    _LOGGER.debug("MU Opgaver response " + str(ugeplaner.text))
+
                 if "0062" in self.widgets:
                     _LOGGER.debug("In the Huskelisten flow...")
                     token = self.get_token("0062", False)
