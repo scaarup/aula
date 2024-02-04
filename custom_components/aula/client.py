@@ -376,7 +376,7 @@ class Client:
                 and not "0001" in self.widgets
             ):
                 _LOGGER.error(
-                    "You have enabled ugeplaner, but we cannot find any matching widgets (0029,0004) in Aula."
+                    "You have enabled ugeplaner, but we cannot find any supported widgets (0029,0004,0030,0001) in Aula."
                 )
             if "0029" in self.widgets and "0004" in self.widgets:
                 _LOGGER.warning(
@@ -386,6 +386,8 @@ class Client:
             def ugeplan(week, thisnext):
                 if "0029" in self.widgets:
                     token = self.get_token("0029")
+                    _LOGGER.debug("JOKUM " + str(self._childuserids))
+                    _LOGGER.debug("JOKUM " + str(self._childids))
                     get_payload = (
                         "/ugebrev?assuranceLevel=2&childFilter="
                         + childUserIds
@@ -438,7 +440,7 @@ class Client:
                     csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]
 
                     easyiq_headers = {
-                        "x-aula-institutionfilter": instProfileIds,
+                        "x-aula-institutionfilter": str(self._institutionProfiles[0]),
                         "x-aula-userprofile": "guardian",
                         "Authorization": token,
                         "accept": "application/json",
@@ -450,10 +452,10 @@ class Client:
                     _LOGGER.debug("EasyIQ headers " + str(easyiq_headers))
                     post_data = {
                         "sessionId": guardian,
-                        "currentWeekNr": "2024-W5",
+                        "currentWeekNr": week,
                         "userProfile": "guardian",
-                        "institutionFilter": instProfileIds,
-                        "childFilter": [childUserIds],
+                        "institutionFilter": str(self._institutionProfiles),
+                        "childFilter": str(self._childuserids),
                     }
                     _LOGGER.debug("EasyIQ post data " + str(post_data))
                     ugeplaner = requests.post(
