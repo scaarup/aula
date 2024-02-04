@@ -372,6 +372,8 @@ class Client:
                 not "0029" in self.widgets
                 and not "0004" in self.widgets
                 and not "0062" in self.widgets
+                and not "0030" in self.widgets
+                and not "0001" in self.widgets
             ):
                 _LOGGER.error(
                     "You have enabled ugeplaner, but we cannot find any matching widgets (0029,0004) in Aula."
