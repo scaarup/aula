@@ -447,7 +447,7 @@ class Client:
 
                 # EasyIQ:
                 if "0001" in self.widgets:
-                    _LOGGER.debug("In the EasyIQ flow flow")
+                    _LOGGER.debug("In the EasyIQ flow")
                     token = self.get_token("0001")
                     csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]
 
@@ -464,7 +464,7 @@ class Client:
                     _LOGGER.debug("EasyIQ headers " + str(easyiq_headers))
                     post_data = {
                         "sessionId": guardian,
-                        "currentWeekNr": week,
+                        "currentWeekNr": "2024-W5",
                         "userProfile": "guardian",
                         "institutionFilter": str(self._institutionProfiles),
                         "childFilter": str(self._childuserids),
