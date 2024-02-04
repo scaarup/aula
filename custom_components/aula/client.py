@@ -3,7 +3,14 @@ import requests
 import datetime
 from bs4 import BeautifulSoup
 import json, re
-from .const import API, API_VERSION, MIN_UDDANNELSE_API, MEEBOOK_API, SYSTEMATIC_API
+from .const import (
+    API,
+    API_VERSION,
+    MIN_UDDANNELSE_API,
+    MEEBOOK_API,
+    SYSTEMATIC_API,
+    EASYIQ_API,
+)
 from homeassistant.exceptions import ConfigEntryNotReady
 
 _LOGGER = logging.getLogger(__name__)
@@ -421,6 +428,42 @@ class Client:
                         "MU Opgaver status_code " + str(ugeplaner.status_code)
                     )
                     _LOGGER.debug("MU Opgaver response " + str(ugeplaner.text))
+
+                # EasyIQ:
+                if "0001" in self.widgets:
+                    _LOGGER.debug("In the EasyIQ flow flow")
+                    token = self.get_token("0001")
+                    csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]
+
+                    easyiq_headers = {
+                        "x-aula-institutionfilter": instProfileIds,
+                        "x-aula-userprofile": "guardian",
+                        "Authorization": token,
+                        "accept": "application/json",
+                        "csrfp-token": csrf_token,
+                        "origin": "https://www.aula.dk",
+                        "referer": "https://www.aula.dk/",
+                        "authority": "api.easyiqcloud.dk",
+                    }
+                    _LOGGER.debug("EasyIQ headers " + str(easyiq_headers))
+                    post_data = {
+                        "sessionId": guardian,
+                        "currentWeekNr": "2024-W5",
+                        "userProfile": "guardian",
+                        "institutionFilter": instProfileIds,
+                        "childFilter": [childUserIds],
+                    }
+                    _LOGGER.debug("EasyIQ post data " + str(post_data))
+                    ugeplaner = requests.post(
+                        EASYIQ_API + "/weekplaninfo",
+                        json=json.loads(post_data),
+                        headers=easyiq_headers,
+                        verify=True,
+                    )
+                    _LOGGER.debug(
+                        "EasyIQ Opgaver status_code " + str(ugeplaner.status_code)
+                    )
+                    _LOGGER.debug("EasyIQ Opgaver response " + str(ugeplaner.text))
 
                 if "0062" in self.widgets:
                     _LOGGER.debug("In the Huskelisten flow...")
