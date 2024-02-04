@@ -432,11 +432,18 @@ class Client:
                     _LOGGER.debug("MU Opgaver response " + str(ugeplaner.text))
                     _ugep = ""
                     for i in ugeplaner.json()["opgaver"]:
-                        _ugep = _ugep + "<b>" + i["title"] + "</b>"
+                        _ugep = _ugep + "<h2>" + i["title"] + "</h2>"
+                        _ugep = _ugep + "<h3>" + i["kuvertnavn"] + "</h3>"
                         _ugep = _ugep + "Ugedag: " + i["ugedag"] + "<br>"
                         _ugep = _ugep + "Type: " + i["opgaveType"] + "<br>"
                         for h in i["hold"]:
-                            e = 2
+                            _ugep = _ugep + "Hold: " + h["navn"] + "<br>"
+                        _ugep = _ugep + "Forløb: " + i["forloeb"]["navn"]
+                    if thisnext == "this":
+                        self.ugep_attr[person["navn"].split()[0]] = _ugep
+                    elif thisnext == "next":
+                        self.ugepnext_attr[person["navn"].split()[0]] = _ugep
+                    _LOGGER.debug("MU Opgaver result: " + str(_ugep))
 
                 # EasyIQ:
                 if "0001" in self.widgets:
