@@ -386,8 +386,6 @@ class Client:
             def ugeplan(week, thisnext):
                 if "0029" in self.widgets:
                     token = self.get_token("0029")
-                    _LOGGER.debug("JOKUM " + str(self._childuserids))
-                    _LOGGER.debug("JOKUM " + str(self._childids))
                     get_payload = (
                         "/ugebrev?assuranceLevel=2&childFilter="
                         + childUserIds
@@ -432,6 +430,13 @@ class Client:
                         "MU Opgaver status_code " + str(ugeplaner.status_code)
                     )
                     _LOGGER.debug("MU Opgaver response " + str(ugeplaner.text))
+                    _ugep = ""
+                    for i in ugeplaner.json()["opgaver"]:
+                        _ugep = _ugep + "<b>" + i["title"] + "</b>"
+                        _ugep = _ugep + "Ugedag: " + i["ugedag"] + "<br>"
+                        _ugep = _ugep + "Type: " + i["opgaveType"] + "<br>"
+                        for h in i["hold"]:
+                            e = 2
 
                 # EasyIQ:
                 if "0001" in self.widgets:
@@ -460,7 +465,7 @@ class Client:
                     _LOGGER.debug("EasyIQ post data " + str(post_data))
                     ugeplaner = requests.post(
                         EASYIQ_API + "/weekplaninfo",
-                        json=json.loads(post_data),
+                        json=post_data,
                         headers=easyiq_headers,
                         verify=True,
                     )
