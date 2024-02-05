@@ -438,7 +438,10 @@ class Client:
                         _ugep = _ugep + "Type: " + i["opgaveType"] + "<br>"
                         for h in i["hold"]:
                             _ugep = _ugep + "Hold: " + h["navn"] + "<br>"
-                        _ugep = _ugep + "Forløb: " + i["forloeb"]["navn"]
+                        try:
+                            _ugep = _ugep + "Forløb: " + i["forloeb"]["navn"]
+                        except:
+                            _LOGGER.debug("Did not find forloeb key: " + str(i))
                     if thisnext == "this":
                         self.ugep_attr[person["navn"].split()[0]] = _ugep
                     elif thisnext == "next":
