@@ -464,10 +464,10 @@ class Client:
                     _LOGGER.debug("EasyIQ headers " + str(easyiq_headers))
                     post_data = {
                         "sessionId": guardian,
-                        "currentWeekNr": "2024-W5",
+                        "currentWeekNr": week,
                         "userProfile": "guardian",
-                        "institutionFilter": str(self._institutionProfiles),
-                        "childFilter": str(self._childuserids),
+                        "institutionFilter": self._institutionProfiles,
+                        "childFilter": self._childuserids,
                     }
                     _LOGGER.debug("EasyIQ post data " + str(post_data))
                     ugeplaner = requests.post(
