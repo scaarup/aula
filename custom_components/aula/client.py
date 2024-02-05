@@ -443,9 +443,9 @@ class Client:
                         except:
                             _LOGGER.debug("Did not find forloeb key: " + str(i))
                     if thisnext == "this":
-                        self.ugep_attr[person["navn"].split()[0]] = _ugep
+                        self.ugep_attr[i["kuvertnavn"].split()[0]] = _ugep
                     elif thisnext == "next":
-                        self.ugepnext_attr[person["navn"].split()[0]] = _ugep
+                        self.ugepnext_attr[i["kuvertnavn"].split()[0]] = _ugep
                     _LOGGER.debug("MU Opgaver result: " + str(_ugep))
 
                 # EasyIQ:
