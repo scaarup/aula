@@ -288,9 +288,9 @@ class Client:
             )
             # _LOGGER.debug("threadres "+str(threadres.text))
             if threadres.json()["status"]["code"] == 403:
-                self.message[
-                    "text"
-                ] = "Log ind på Aula med MitID for at læse denne besked."
+                self.message["text"] = (
+                    "Log ind på Aula med MitID for at læse denne besked."
+                )
                 self.message["sender"] = "Ukendt afsender"
                 self.message["subject"] = "Følsom besked"
             else:
@@ -430,23 +430,31 @@ class Client:
                         "MU Opgaver status_code " + str(ugeplaner.status_code)
                     )
                     _LOGGER.debug("MU Opgaver response " + str(ugeplaner.text))
-                    _ugep = ""
-                    for i in ugeplaner.json()["opgaver"]:
-                        _ugep = _ugep + "<h2>" + i["title"] + "</h2>"
-                        _ugep = _ugep + "<h3>" + i["kuvertnavn"] + "</h3>"
-                        _ugep = _ugep + "Ugedag: " + i["ugedag"] + "<br>"
-                        _ugep = _ugep + "Type: " + i["opgaveType"] + "<br>"
-                        for h in i["hold"]:
-                            _ugep = _ugep + "Hold: " + h["navn"] + "<br>"
-                        try:
-                            _ugep = _ugep + "Forløb: " + i["forloeb"]["navn"]
-                        except:
-                            _LOGGER.debug("Did not find forloeb key: " + str(i))
-                    if thisnext == "this":
-                        self.ugep_attr[i["kuvertnavn"].split()[0]] = _ugep
-                    elif thisnext == "next":
-                        self.ugepnext_attr[i["kuvertnavn"].split()[0]] = _ugep
-                    _LOGGER.debug("MU Opgaver result: " + str(_ugep))
+                    for full_name in self._childnames.items():
+                        name_parts = full_name.split()
+                        first_name = name_parts[0]
+                        _ugep = ""
+                        for i in ugeplaner.json()["opgaver"]:
+                            _LOGGER.debug(
+                                "i kuvertnavn split " + str(i["kuvertnavn"].split()[0])
+                            )
+                            _LOGGER.debug("first_name " + first_name)
+                            if i["kuvertnavn"].split()[0] == first_name:
+                                _ugep = _ugep + "<h2>" + i["title"] + "</h2>"
+                                _ugep = _ugep + "<h3>" + i["kuvertnavn"] + "</h3>"
+                                _ugep = _ugep + "Ugedag: " + i["ugedag"] + "<br>"
+                                _ugep = _ugep + "Type: " + i["opgaveType"] + "<br>"
+                                for h in i["hold"]:
+                                    _ugep = _ugep + "Hold: " + h["navn"] + "<br>"
+                                try:
+                                    _ugep = _ugep + "Forløb: " + i["forloeb"]["navn"]
+                                except:
+                                    _LOGGER.debug("Did not find forloeb key: " + str(i))
+                        if thisnext == "this":
+                            self.ugep_attr[first_name] = _ugep
+                        elif thisnext == "next":
+                            self.ugepnext_attr[first_name] = _ugep
+                        _LOGGER.debug("MU Opgaver result: " + str(_ugep))
 
                 # EasyIQ:
                 if "0001" in self.widgets:

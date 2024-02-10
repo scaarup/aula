@@ -233,6 +233,7 @@ class AulaSensor(Entity):
                     except:
                         attributes[attribute] = daily_info[attribute]
             attributes["profilePicture"] = profilePicture
+            attributes["institutionProfileId"] = daily_info["institutionProfile"]["id"]
         return attributes
 
     @property
