@@ -219,6 +219,7 @@ class Client:
         self._childids = []
         self._children = []
         self._institutionProfiles = []
+        self._childrenFirstNamesAndUserIDs = {}
         for profile in self._profiles:
             for child in profile["children"]:
                 self._childnames[child["id"]] = child["name"]
@@ -228,6 +229,9 @@ class Client:
                 self._children.append(child)
                 self._childids.append(str(child["id"]))
                 self._childuserids.append(str(child["userId"]))
+                self._childrenFirstNamesAndUserIDs[child["userId"]] = child[
+                    "name"
+                ].split()[0]
             for institutioncode in profile["institutionProfiles"]:
                 if (
                     str(institutioncode["institutionCode"])
@@ -384,7 +388,7 @@ class Client:
                 )
 
             def ugeplan(week, thisnext):
-                if "0029" in self.widgets:
+                if "0029" in self.widgets and "0030" not in self.widgets:
                     token = self.get_token("0029")
                     get_payload = (
                         "/ugebrev?assuranceLevel=2&childFilter="
@@ -472,25 +476,40 @@ class Client:
                         "referer": "https://www.aula.dk/",
                         "authority": "api.easyiqcloud.dk",
                     }
-                    _LOGGER.debug("EasyIQ headers " + str(easyiq_headers))
-                    post_data = {
-                        "sessionId": guardian,
-                        "currentWeekNr": week,
-                        "userProfile": "guardian",
-                        "institutionFilter": self._institutionProfiles,
-                        "childFilter": self._childuserids,
-                    }
-                    _LOGGER.debug("EasyIQ post data " + str(post_data))
-                    ugeplaner = requests.post(
-                        EASYIQ_API + "/weekplaninfo",
-                        json=post_data,
-                        headers=easyiq_headers,
-                        verify=True,
-                    )
-                    _LOGGER.debug(
-                        "EasyIQ Opgaver status_code " + str(ugeplaner.status_code)
-                    )
-                    _LOGGER.debug("EasyIQ Opgaver response " + str(ugeplaner.text))
+
+                    for child in self._childrenFirstNamesAndUserIDs.items():
+                        userid = child[0]
+                        first_name = child[1]
+
+                        _LOGGER.debug("EasyIQ headers " + str(easyiq_headers))
+                        post_data = {
+                            "sessionId": guardian,
+                            "currentWeekNr": week,
+                            "userProfile": "guardian",
+                            "institutionFilter": self._institutionProfiles,
+                            "childFilter": userid,
+                        }
+                        _LOGGER.debug("EasyIQ post data " + str(post_data))
+                        ugeplaner = requests.post(
+                            EASYIQ_API + "/weekplaninfo",
+                            json=post_data,
+                            headers=easyiq_headers,
+                            verify=True,
+                        )
+                        _LOGGER.debug(
+                            "EasyIQ Opgaver status_code " + str(ugeplaner.status_code)
+                        )
+                        _LOGGER.debug("EasyIQ Opgaver response " + str(ugeplaner.text))
+                        _ugep = ""
+                        for i in ugeplaner.json()["Events"]:
+                            _ugep = "<h2>" + i["courses"] + "</h2>"
+                            _ugep = _ugep + i["description"]
+
+                        if thisnext == "this":
+                            self.ugep_attr[first_name] = _ugep
+                        elif thisnext == "next":
+                            self.ugepnext_attr[first_name] = _ugep
+                        _LOGGER.debug("EasyIQ result: " + str(_ugep))
 
                 if "0062" in self.widgets:
                     _LOGGER.debug("In the Huskelisten flow...")
