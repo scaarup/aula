@@ -507,6 +507,7 @@ class Client:
                             # + ugeplaner.json()["Weekplan"]["ActivityName"]
                             + " Uge "
                             # + ugeplaner.json()["Weekplan"]["WeekNo"]
+                            + "</h2>"
                         )
                         for i in ugeplaner.json()["Events"]:
                             _ugep = _ugep + "<b>" + str(i["ownername"]) + "</b><br>"
