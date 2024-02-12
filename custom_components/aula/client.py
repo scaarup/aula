@@ -502,8 +502,8 @@ class Client:
                         _LOGGER.debug("EasyIQ Opgaver response " + str(ugeplaner.text))
                         _ugep = ""
                         for i in ugeplaner.json()["Events"]:
-                            _ugep = "<h2>" + i["courses"] + "</h2>"
-                            _ugep = _ugep + i["description"]
+                            _ugep = "<h2>" + str(i["courses"]) + "</h2>"
+                            _ugep = _ugep + str(i["description"])
 
                         if thisnext == "this":
                             self.ugep_attr[first_name] = _ugep
