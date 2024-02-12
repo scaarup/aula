@@ -474,7 +474,7 @@ class Client:
                         "csrfp-token": csrf_token,
                         "origin": "https://www.aula.dk",
                         "referer": "https://www.aula.dk/",
-                        "authority": "api.easyiqcloud.dk",
+                        "authority": "api.easyiqcloud.dk"
                     }
 
                     for child in self._childrenFirstNamesAndUserIDs.items():
@@ -487,7 +487,7 @@ class Client:
                             "currentWeekNr": week,
                             "userProfile": "guardian",
                             "institutionFilter": self._institutionProfiles,
-                            "childFilter": [userid],
+                            "childFilter": [userid]
                         }
                         _LOGGER.debug("EasyIQ post data " + str(post_data))
                         ugeplaner = requests.post(
@@ -496,9 +496,9 @@ class Client:
                             headers=easyiq_headers,
                             verify=True,
                         )
-                        _LOGGER.debug(
+                        #_LOGGER.debug(
                             #    "EasyIQ Opgaver status_code " + str(ugeplaner.status_code)
-                        )
+                        #)
                         _LOGGER.debug(
                             "EasyIQ Opgaver response " + str(ugeplaner.json())
                         )
