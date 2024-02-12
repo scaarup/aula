@@ -497,14 +497,16 @@ class Client:
                             verify=True,
                         )
                         _LOGGER.debug(
-                            "EasyIQ Opgaver status_code " + str(ugeplaner.status_code)
+                            #    "EasyIQ Opgaver status_code " + str(ugeplaner.status_code)
                         )
-                        _LOGGER.debug("EasyIQ Opgaver response " + str(ugeplaner.text))
+                        _LOGGER.debug(
+                            "EasyIQ Opgaver response " + str(ugeplaner.json())
+                        )
                         _ugep = (
                             "<h2>"
-                            + ugeplaner.json()["Weekplan"]["ActivityName"]
+                            # + ugeplaner.json()["Weekplan"]["ActivityName"]
                             + " Uge "
-                            + ugeplaner.json()["Weekplan"]["WeekNo"]
+                            # + ugeplaner.json()["Weekplan"]["WeekNo"]
                         )
                         for i in ugeplaner.json()["Events"]:
                             _ugep = _ugep + "<b>" + str(i["ownername"]) + "</b><br>"
