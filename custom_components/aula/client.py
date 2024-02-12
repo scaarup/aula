@@ -487,7 +487,7 @@ class Client:
                             "currentWeekNr": week,
                             "userProfile": "guardian",
                             "institutionFilter": self._institutionProfiles,
-                            "childFilter": userid,
+                            "childFilter": [userid],
                         }
                         _LOGGER.debug("EasyIQ post data " + str(post_data))
                         ugeplaner = requests.post(
