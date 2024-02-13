@@ -512,10 +512,12 @@ class Client:
                             + "</h2>"
                         )
                         for i in ugeplaner.json()["Events"]:
-                            start_datetime = datetime.strptime(
+                            start_datetime = datetime.datetime.strptime(
                                 i["start"], "%Y/%m/%d %H:%M"
                             )
-                            end_datetime = datetime.strptime(i["end"], "%Y/%m/%d %H:%M")
+                            end_datetime = datetime.datetime.strptime(
+                                i["end"], "%Y/%m/%d %H:%M"
+                            )
                             if start_datetime.date() == end_datetime.date():
                                 formatted_start = start_datetime.strftime("%A %H:%M")
                                 formatted_end = end_datetime.strftime("- %H:%M")
@@ -529,7 +531,9 @@ class Client:
                             if i["itemType"] == "5":
                                 _ugep = _ugep + "<br><b>" + str(i["title"]) + "</b><br>"
                             else:
-                                _ugep = _ugep + "<br><b>" + str(i["ownername"]) + "</b><br>"
+                                _ugep = (
+                                    _ugep + "<br><b>" + str(i["ownername"]) + "</b><br>"
+                                )
                                 _ugep = _ugep + str(i["description"]) + "<br>"
 
                         if thisnext == "this":
