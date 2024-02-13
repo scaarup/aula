@@ -389,6 +389,8 @@ class Client:
 
             def ugeplan(week, thisnext):
                 if "0029" in self.widgets and "0030" not in self.widgets:
+                    from datetime import datetime
+
                     token = self.get_token("0029")
                     get_payload = (
                         "/ugebrev?assuranceLevel=2&childFilter="
@@ -474,7 +476,7 @@ class Client:
                         "csrfp-token": csrf_token,
                         "origin": "https://www.aula.dk",
                         "referer": "https://www.aula.dk/",
-                        "authority": "api.easyiqcloud.dk"
+                        "authority": "api.easyiqcloud.dk",
                     }
 
                     for child in self._childrenFirstNamesAndUserIDs.items():
@@ -487,7 +489,7 @@ class Client:
                             "currentWeekNr": week,
                             "userProfile": "guardian",
                             "institutionFilter": self._institutionProfiles,
-                            "childFilter": [userid]
+                            "childFilter": [userid],
                         }
                         _LOGGER.debug("EasyIQ post data " + str(post_data))
                         ugeplaner = requests.post(
@@ -496,9 +498,9 @@ class Client:
                             headers=easyiq_headers,
                             verify=True,
                         )
-                        #_LOGGER.debug(
-                            #    "EasyIQ Opgaver status_code " + str(ugeplaner.status_code)
-                        #)
+                        # _LOGGER.debug(
+                        #    "EasyIQ Opgaver status_code " + str(ugeplaner.status_code)
+                        # )
                         _LOGGER.debug(
                             "EasyIQ Opgaver response " + str(ugeplaner.json())
                         )
@@ -510,8 +512,25 @@ class Client:
                             + "</h2>"
                         )
                         for i in ugeplaner.json()["Events"]:
-                            _ugep = _ugep + "<b>" + str(i["ownername"]) + "</b><br>"
-                            _ugep = _ugep + str(i["description"]) + "<br>"
+                            start_datetime = datetime.strptime(
+                                i["start"], "%Y/%m/%d %H:%M"
+                            )
+                            end_datetime = datetime.strptime(i["end"], "%Y/%m/%d %H:%M")
+                            if start_datetime.date() == end_datetime.date():
+                                formatted_start = start_datetime.strftime("%A %H:%M")
+                                formatted_end = end_datetime.strftime("- %H:%M")
+                                dresult = f"{formatted_start} {formatted_end}"
+                            else:
+                                formatted_start = start_datetime.strftime("%A")
+                                formatted_end = end_datetime.strftime("- %A")
+                                dresult = f"{formatted_start} {formatted_end}"
+
+                            _ugep = _ugep + "<br><b>" + dresult + "</b><br>"
+                            if i["itemType"] == "5":
+                                _ugep = _ugep + "<br><b>" + str(i["title"]) + "</b><br>"
+                            else:
+                                _ugep = _ugep + "<br><b>" + str(i["ownername"]) + "</b><br>"
+                                _ugep = _ugep + str(i["description"]) + "<br>"
 
                         if thisnext == "this":
                             self.ugep_attr[first_name] = _ugep
