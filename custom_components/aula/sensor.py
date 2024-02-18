@@ -73,6 +73,7 @@ async def async_setup_entry(
     entities = []
     client = hass.data[DOMAIN]["client"]
     await hass.async_add_executor_job(client.update_data)
+
     for i, child in enumerate(client._children):
         # _LOGGER.debug("Presence data for child "+str(child["id"])+" : "+str(client.presence[str(child["id"])]))
         if client.presence[str(child["id"])] == 1:

@@ -389,8 +389,6 @@ class Client:
 
             def ugeplan(week, thisnext):
                 if "0029" in self.widgets and "0030" not in self.widgets:
-                    from datetime import datetime
-
                     token = self.get_token("0029")
                     get_payload = (
                         "/ugebrev?assuranceLevel=2&childFilter="
@@ -462,7 +460,6 @@ class Client:
                             self.ugepnext_attr[first_name] = _ugep
                         _LOGGER.debug("MU Opgaver result: " + str(_ugep))
 
-                # EasyIQ:
                 if "0001" in self.widgets:
                     _LOGGER.debug("In the EasyIQ flow")
                     token = self.get_token("0001")
@@ -508,34 +505,57 @@ class Client:
                             "<h2>"
                             # + ugeplaner.json()["Weekplan"]["ActivityName"]
                             + " Uge "
+                            + week.split("-W")
                             # + ugeplaner.json()["Weekplan"]["WeekNo"]
                             + "</h2>"
                         )
-                        for i in ugeplaner.json()["Events"]:
-                            start_datetime = datetime.datetime.strptime(
-                                i["start"], "%Y/%m/%d %H:%M"
-                            )
-                            end_datetime = datetime.datetime.strptime(
-                                i["end"], "%Y/%m/%d %H:%M"
-                            )
-                            if start_datetime.date() == end_datetime.date():
-                                formatted_start = start_datetime.strftime("%A %H:%M")
-                                formatted_end = end_datetime.strftime("- %H:%M")
-                                dresult = f"{formatted_start} {formatted_end}"
-                            else:
-                                formatted_start = start_datetime.strftime("%A")
-                                formatted_end = end_datetime.strftime("- %A")
-                                dresult = f"{formatted_start} {formatted_end}"
+                        # from datetime import datetime
 
-                            _ugep = _ugep + "<br><b>" + dresult + "</b><br>"
-                            if i["itemType"] == "5":
-                                _ugep = _ugep + "<br><b>" + str(i["title"]) + "</b><br>"
-                            else:
-                                _ugep = (
-                                    _ugep + "<br><b>" + str(i["ownername"]) + "</b><br>"
+                        def is_correct_format(date_string, format):
+                            try:
+                                datetime.datetime.strptime(date_string, format)
+                                return True
+                            except ValueError:
+                                _LOGGER.debug(
+                                    "Could not parse timestamp: " + str(date_string)
                                 )
-                                _ugep = _ugep + str(i["description"]) + "<br>"
+                                return False
 
+                        for i in ugeplaner.json()["Events"]:
+                            if is_correct_format(i["start"], "%Y/%m/%d %H:%M"):
+                                _LOGGER.debug("No Event")
+                                start_datetime = datetime.datetime.strptime(
+                                    i["start"], "%Y/%m/%d %H:%M"
+                                )
+                                _LOGGER.debug(start_datetime)
+                                end_datetime = datetime.datetime.strptime(
+                                    i["end"], "%Y/%m/%d %H:%M"
+                                )
+                                if start_datetime.date() == end_datetime.date():
+                                    formatted_start = start_datetime.strftime(
+                                        "%A %H:%M"
+                                    )
+                                    formatted_end = end_datetime.strftime("- %H:%M")
+                                    dresult = f"{formatted_start} {formatted_end}"
+                                else:
+                                    formatted_start = start_datetime.strftime("%A")
+                                    formatted_end = end_datetime.strftime("- %A")
+                                    dresult = f"{formatted_start} {formatted_end}"
+                                _ugep = _ugep + "<br><b>" + dresult + "</b><br>"
+                                if i["itemType"] == "5":
+                                    _ugep = (
+                                        _ugep + "<br><b>" + str(i["title"]) + "</b><br>"
+                                    )
+                                else:
+                                    _ugep = (
+                                        _ugep
+                                        + "<br><b>"
+                                        + str(i["ownername"])
+                                        + "</b><br>"
+                                    )
+                                _ugep = _ugep + str(i["description"]) + "<br>"
+                            else:
+                                _LOGGER.debug("None")
                         if thisnext == "this":
                             self.ugep_attr[first_name] = _ugep
                         elif thisnext == "next":

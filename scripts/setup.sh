@@ -3,4 +3,4 @@
 set -e
 cd "$(dirname "$0")/.."
 python3 -m pip --disable-pip-version-check --no-cache-dir install --requirement requirements.txt
-apt update && apt -y install libpcap0.8-dev ffmpeg
+apt update && apt -y upgrade
