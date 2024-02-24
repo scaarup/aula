@@ -435,7 +435,7 @@ class Client:
                     )
                     _LOGGER.debug("MU Opgaver response " + str(ugeplaner.text))
                     for full_name in self._childnames.items():
-                        name_parts = full_name.split()
+                        name_parts = full_name[1].split()
                         first_name = name_parts[0]
                         _ugep = ""
                         for i in ugeplaner.json()["opgaver"]:
@@ -461,6 +461,8 @@ class Client:
                         _LOGGER.debug("MU Opgaver result: " + str(_ugep))
 
                 if "0001" in self.widgets:
+                    import calendar
+
                     _LOGGER.debug("In the EasyIQ flow")
                     token = self.get_token("0001")
                     csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]
@@ -483,7 +485,7 @@ class Client:
                         _LOGGER.debug("EasyIQ headers " + str(easyiq_headers))
                         post_data = {
                             "sessionId": guardian,
-                            "currentWeekNr": week,
+                            "currentWeekNr": "2024-W06",
                             "userProfile": "guardian",
                             "institutionFilter": self._institutionProfiles,
                             "childFilter": [userid],
@@ -505,11 +507,25 @@ class Client:
                             "<h2>"
                             # + ugeplaner.json()["Weekplan"]["ActivityName"]
                             + " Uge "
-                            + week.split("-W")
+                            + week.split("-W")[1]
                             # + ugeplaner.json()["Weekplan"]["WeekNo"]
                             + "</h2>"
                         )
                         # from datetime import datetime
+
+                        def findDay(date):
+                            day, month, year = (int(i) for i in date.split(" "))
+                            dayNumber = calendar.weekday(year, month, day)
+                            days = [
+                                "Mandag",
+                                "Tirsdag",
+                                "Onsdag",
+                                "Torsdag",
+                                "Fredag",
+                                "Lørdag",
+                                "Søndag",
+                            ]
+                            return days[dayNumber]
 
                         def is_correct_format(date_string, format):
                             try:
@@ -532,14 +548,19 @@ class Client:
                                     i["end"], "%Y/%m/%d %H:%M"
                                 )
                                 if start_datetime.date() == end_datetime.date():
-                                    formatted_start = start_datetime.strftime(
-                                        "%A %H:%M"
+                                    formatted_day = findDay(
+                                        start_datetime.strftime("%d %m %Y")
                                     )
+                                    formatted_start = start_datetime.strftime(" %H:%M")
                                     formatted_end = end_datetime.strftime("- %H:%M")
-                                    dresult = f"{formatted_start} {formatted_end}"
+                                    dresult = f"{formatted_day} {formatted_start} {formatted_end}"
                                 else:
-                                    formatted_start = start_datetime.strftime("%A")
-                                    formatted_end = end_datetime.strftime("- %A")
+                                    formatted_start = findDay(
+                                        start_datetime.strftime("%d %m %Y")
+                                    )
+                                    formatted_end = findDay(
+                                        end_datetime.strftime("%d %m %Y")
+                                    )
                                     dresult = f"{formatted_start} {formatted_end}"
                                 _ugep = _ugep + "<br><b>" + dresult + "</b><br>"
                                 if i["itemType"] == "5":
