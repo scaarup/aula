@@ -1,6 +1,7 @@
 import logging
 import requests
 import datetime
+import pytz
 from bs4 import BeautifulSoup
 import json, re
 from .const import (
@@ -189,16 +190,26 @@ class Client:
         _LOGGER.debug("Widgets found: " + str(self.widgets))
 
     def get_token(self, widgetid, mock=False):
-        _LOGGER.debug("Requesting token for widget " + widgetid)
+        if widgetid in self.tokens:
+            token, timestamp = self.tokens[widgetid]
+            current_time = datetime.datetime.now(pytz.utc)
+            if current_time - timestamp < datetime.timedelta(minutes=1):
+                _LOGGER.debug("Reusing existing token for widget " + widgetid)
+                return token
         if mock:
             return "MockToken"
+
+        _LOGGER.debug("Requesting new token for widget " + widgetid)
         self._bearertoken = self._session.get(
             self.apiurl + "?method=aulaToken.getAulaToken&widgetId=" + widgetid,
             verify=True,
         ).json()["data"]
+
         token = "Bearer " + str(self._bearertoken)
-        self.tokens[widgetid] = token
+        self.tokens[widgetid] = (token, datetime.datetime.now(pytz.utc))
         return token
+
+    ###
 
     def update_data(self):
         is_logged_in = False
