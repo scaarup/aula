@@ -170,7 +170,7 @@ class Client:
         self._profilecontext = self._session.get(
             self.apiurl + "?method=profiles.getProfileContext&portalrole=guardian",
             verify=True,
-        ).json()["data"]["institutionProfile"]["relations"]
+        ).json()["data"]["institutions"]
         _LOGGER.debug("LOGIN: " + str(success))
         _LOGGER.debug(
             "Config - schoolschedule: "
@@ -231,26 +231,14 @@ class Client:
         self._children = []
         self._institutionProfiles = []
         self._childrenFirstNamesAndUserIDs = {}
-        for profile in self._profiles:
-            for child in profile["children"]:
+        for institutions in self._profilecontext:
+            for child in institutions["children"]:
                 self._childnames[child["id"]] = child["name"]
-                self._institutions[child["id"]] = child["institutionProfile"][
-                    "institutionName"
-                ]
+                self._institutions[child["id"]] = institutions["name"]
                 self._children.append(child)
                 self._childids.append(str(child["id"]))
                 self._childuserids.append(str(child["userId"]))
-                self._childrenFirstNamesAndUserIDs[child["userId"]] = child[
-                    "name"
-                ].split()[0]
-            for institutioncode in profile["institutionProfiles"]:
-                if (
-                    str(institutioncode["institutionCode"])
-                    not in self._institutionProfiles
-                ):
-                    self._institutionProfiles.append(
-                        str(institutioncode["institutionCode"])
-                    )
+            self._institutionProfiles.append(institutions["institutionCode"])
         _LOGGER.debug("Child ids and names: " + str(self._childnames))
         _LOGGER.debug("Child ids and institution names: " + str(self._institutions))
         _LOGGER.debug("Institution codes: " + str(self._institutionProfiles))
@@ -303,9 +291,9 @@ class Client:
             )
             # _LOGGER.debug("threadres "+str(threadres.text))
             if threadres.json()["status"]["code"] == 403:
-                self.message["text"] = (
-                    "Log ind på Aula med MitID for at læse denne besked."
-                )
+                self.message[
+                    "text"
+                ] = "Log ind på Aula med MitID for at læse denne besked."
                 self.message["sender"] = "Ukendt afsender"
                 self.message["subject"] = "Følsom besked"
             else:
