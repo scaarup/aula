@@ -496,7 +496,7 @@ class Client:
                         _LOGGER.debug("EasyIQ headers " + str(easyiq_headers))
                         post_data = {
                             "sessionId": guardian,
-                            "currentWeekNr": "2024-W06",
+                            "currentWeekNr": week,
                             "userProfile": "guardian",
                             "institutionFilter": self._institutionProfiles,
                             "childFilter": [userid],
