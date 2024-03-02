@@ -1,6 +1,6 @@
 {
     "name": "aula/devcontainer",
-    "image": "mcr.microsoft.com/vscode/devcontainers/python:0-3.11-bullseye",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12-bookworm",
     "postCreateCommand": "scripts/setup.sh",
     "appPort": [
         "1337:8123"
@@ -34,8 +34,5 @@
             }
         }
     },
-    "remoteUser": "root",
-    "features": {
-        "ghcr.io/devcontainers/features/rust:1": {}
-    }
+    "remoteUser": "root"
 }

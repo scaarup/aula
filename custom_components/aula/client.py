@@ -1,9 +1,17 @@
 import logging
 import requests
 import datetime
+import pytz
 from bs4 import BeautifulSoup
 import json, re
-from .const import API, API_VERSION, MIN_UDDANNELSE_API, MEEBOOK_API, SYSTEMATIC_API
+from .const import (
+    API,
+    API_VERSION,
+    MIN_UDDANNELSE_API,
+    MEEBOOK_API,
+    SYSTEMATIC_API,
+    EASYIQ_API,
+)
 from homeassistant.exceptions import ConfigEntryNotReady
 
 _LOGGER = logging.getLogger(__name__)
@@ -182,16 +190,26 @@ class Client:
         _LOGGER.debug("Widgets found: " + str(self.widgets))
 
     def get_token(self, widgetid, mock=False):
-        _LOGGER.debug("Requesting token for widget " + widgetid)
+        if widgetid in self.tokens:
+            token, timestamp = self.tokens[widgetid]
+            current_time = datetime.datetime.now(pytz.utc)
+            if current_time - timestamp < datetime.timedelta(minutes=1):
+                _LOGGER.debug("Reusing existing token for widget " + widgetid)
+                return token
         if mock:
             return "MockToken"
+
+        _LOGGER.debug("Requesting new token for widget " + widgetid)
         self._bearertoken = self._session.get(
             self.apiurl + "?method=aulaToken.getAulaToken&widgetId=" + widgetid,
             verify=True,
         ).json()["data"]
+
         token = "Bearer " + str(self._bearertoken)
-        self.tokens[widgetid] = token
+        self.tokens[widgetid] = (token, datetime.datetime.now(pytz.utc))
         return token
+
+    ###
 
     def update_data(self):
         is_logged_in = False
@@ -212,6 +230,7 @@ class Client:
         self._childids = []
         self._children = []
         self._institutionProfiles = []
+        self._childrenFirstNamesAndUserIDs = {}
         for profile in self._profiles:
             for child in profile["children"]:
                 self._childnames[child["id"]] = child["name"]
@@ -221,6 +240,9 @@ class Client:
                 self._children.append(child)
                 self._childids.append(str(child["id"]))
                 self._childuserids.append(str(child["userId"]))
+                self._childrenFirstNamesAndUserIDs[child["userId"]] = child[
+                    "name"
+                ].split()[0]
             for institutioncode in profile["institutionProfiles"]:
                 if (
                     str(institutioncode["institutionCode"])
@@ -281,9 +303,9 @@ class Client:
             )
             # _LOGGER.debug("threadres "+str(threadres.text))
             if threadres.json()["status"]["code"] == 403:
-                self.message[
-                    "text"
-                ] = "Log ind på Aula med MitID for at læse denne besked."
+                self.message["text"] = (
+                    "Log ind på Aula med MitID for at læse denne besked."
+                )
                 self.message["sender"] = "Ukendt afsender"
                 self.message["subject"] = "Følsom besked"
             else:
@@ -365,9 +387,11 @@ class Client:
                 not "0029" in self.widgets
                 and not "0004" in self.widgets
                 and not "0062" in self.widgets
+                and not "0030" in self.widgets
+                and not "0001" in self.widgets
             ):
                 _LOGGER.error(
-                    "You have enabled ugeplaner, but we cannot find any matching widgets (0029,0004) in Aula."
+                    "You have enabled ugeplaner, but we cannot find any supported widgets (0029,0004,0030,0001) in Aula."
                 )
             if "0029" in self.widgets and "0004" in self.widgets:
                 _LOGGER.warning(
@@ -375,7 +399,7 @@ class Client:
                 )
 
             def ugeplan(week, thisnext):
-                if "0029" in self.widgets:
+                if "0029" in self.widgets and "0030" not in self.widgets:
                     token = self.get_token("0029")
                     get_payload = (
                         "/ugebrev?assuranceLevel=2&childFilter="
@@ -399,6 +423,176 @@ class Client:
                             self.ugep_attr[person["navn"].split()[0]] = ugeplan
                         elif thisnext == "next":
                             self.ugepnext_attr[person["navn"].split()[0]] = ugeplan
+
+                if "0030" in self.widgets:
+                    _LOGGER.debug("In the MU Opgaver flow")
+                    token = self.get_token("0030")
+                    get_payload = (
+                        "/opgaveliste?assuranceLevel=2&childFilter="
+                        + childUserIds
+                        + "&currentWeekNumber="
+                        + week
+                        + "&isMobileApp=false&placement=narrow&sessionUUID="
+                        + guardian
+                        + "&userProfile=guardian"
+                    )
+                    ugeplaner = requests.get(
+                        MIN_UDDANNELSE_API + get_payload,
+                        headers={"Authorization": token, "accept": "application/json"},
+                        verify=True,
+                    )
+                    _LOGGER.debug(
+                        "MU Opgaver status_code " + str(ugeplaner.status_code)
+                    )
+                    _LOGGER.debug("MU Opgaver response " + str(ugeplaner.text))
+                    for full_name in self._childnames.items():
+                        name_parts = full_name[1].split()
+                        first_name = name_parts[0]
+                        _ugep = ""
+                        for i in ugeplaner.json()["opgaver"]:
+                            _LOGGER.debug(
+                                "i kuvertnavn split " + str(i["kuvertnavn"].split()[0])
+                            )
+                            _LOGGER.debug("first_name " + first_name)
+                            if i["kuvertnavn"].split()[0] == first_name:
+                                _ugep = _ugep + "<h2>" + i["title"] + "</h2>"
+                                _ugep = _ugep + "<h3>" + i["kuvertnavn"] + "</h3>"
+                                _ugep = _ugep + "Ugedag: " + i["ugedag"] + "<br>"
+                                _ugep = _ugep + "Type: " + i["opgaveType"] + "<br>"
+                                for h in i["hold"]:
+                                    _ugep = _ugep + "Hold: " + h["navn"] + "<br>"
+                                try:
+                                    _ugep = _ugep + "Forløb: " + i["forloeb"]["navn"]
+                                except:
+                                    _LOGGER.debug("Did not find forloeb key: " + str(i))
+                        if thisnext == "this":
+                            self.ugep_attr[first_name] = _ugep
+                        elif thisnext == "next":
+                            self.ugepnext_attr[first_name] = _ugep
+                        _LOGGER.debug("MU Opgaver result: " + str(_ugep))
+
+                if "0001" in self.widgets:
+                    import calendar
+
+                    _LOGGER.debug("In the EasyIQ flow")
+                    token = self.get_token("0001")
+                    csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]
+
+                    easyiq_headers = {
+                        "x-aula-institutionfilter": str(self._institutionProfiles[0]),
+                        "x-aula-userprofile": "guardian",
+                        "Authorization": token,
+                        "accept": "application/json",
+                        "csrfp-token": csrf_token,
+                        "origin": "https://www.aula.dk",
+                        "referer": "https://www.aula.dk/",
+                        "authority": "api.easyiqcloud.dk",
+                    }
+
+                    for child in self._childrenFirstNamesAndUserIDs.items():
+                        userid = child[0]
+                        first_name = child[1]
+
+                        _LOGGER.debug("EasyIQ headers " + str(easyiq_headers))
+                        post_data = {
+                            "sessionId": guardian,
+                            "currentWeekNr": week,
+                            "userProfile": "guardian",
+                            "institutionFilter": self._institutionProfiles,
+                            "childFilter": [userid],
+                        }
+                        _LOGGER.debug("EasyIQ post data " + str(post_data))
+                        ugeplaner = requests.post(
+                            EASYIQ_API + "/weekplaninfo",
+                            json=post_data,
+                            headers=easyiq_headers,
+                            verify=True,
+                        )
+                        # _LOGGER.debug(
+                        #    "EasyIQ Opgaver status_code " + str(ugeplaner.status_code)
+                        # )
+                        _LOGGER.debug(
+                            "EasyIQ Opgaver response " + str(ugeplaner.json())
+                        )
+                        _ugep = (
+                            "<h2>"
+                            # + ugeplaner.json()["Weekplan"]["ActivityName"]
+                            + " Uge "
+                            + week.split("-W")[1]
+                            # + ugeplaner.json()["Weekplan"]["WeekNo"]
+                            + "</h2>"
+                        )
+                        # from datetime import datetime
+
+                        def findDay(date):
+                            day, month, year = (int(i) for i in date.split(" "))
+                            dayNumber = calendar.weekday(year, month, day)
+                            days = [
+                                "Mandag",
+                                "Tirsdag",
+                                "Onsdag",
+                                "Torsdag",
+                                "Fredag",
+                                "Lørdag",
+                                "Søndag",
+                            ]
+                            return days[dayNumber]
+
+                        def is_correct_format(date_string, format):
+                            try:
+                                datetime.datetime.strptime(date_string, format)
+                                return True
+                            except ValueError:
+                                _LOGGER.debug(
+                                    "Could not parse timestamp: " + str(date_string)
+                                )
+                                return False
+
+                        for i in ugeplaner.json()["Events"]:
+                            if is_correct_format(i["start"], "%Y/%m/%d %H:%M"):
+                                _LOGGER.debug("No Event")
+                                start_datetime = datetime.datetime.strptime(
+                                    i["start"], "%Y/%m/%d %H:%M"
+                                )
+                                _LOGGER.debug(start_datetime)
+                                end_datetime = datetime.datetime.strptime(
+                                    i["end"], "%Y/%m/%d %H:%M"
+                                )
+                                if start_datetime.date() == end_datetime.date():
+                                    formatted_day = findDay(
+                                        start_datetime.strftime("%d %m %Y")
+                                    )
+                                    formatted_start = start_datetime.strftime(" %H:%M")
+                                    formatted_end = end_datetime.strftime("- %H:%M")
+                                    dresult = f"{formatted_day} {formatted_start} {formatted_end}"
+                                else:
+                                    formatted_start = findDay(
+                                        start_datetime.strftime("%d %m %Y")
+                                    )
+                                    formatted_end = findDay(
+                                        end_datetime.strftime("%d %m %Y")
+                                    )
+                                    dresult = f"{formatted_start} {formatted_end}"
+                                _ugep = _ugep + "<br><b>" + dresult + "</b><br>"
+                                if i["itemType"] == "5":
+                                    _ugep = (
+                                        _ugep + "<br><b>" + str(i["title"]) + "</b><br>"
+                                    )
+                                else:
+                                    _ugep = (
+                                        _ugep
+                                        + "<br><b>"
+                                        + str(i["ownername"])
+                                        + "</b><br>"
+                                    )
+                                _ugep = _ugep + str(i["description"]) + "<br>"
+                            else:
+                                _LOGGER.debug("None")
+                        if thisnext == "this":
+                            self.ugep_attr[first_name] = _ugep
+                        elif thisnext == "next":
+                            self.ugepnext_attr[first_name] = _ugep
+                        _LOGGER.debug("EasyIQ result: " + str(_ugep))
 
                 if "0062" in self.widgets:
                     _LOGGER.debug("In the Huskelisten flow...")

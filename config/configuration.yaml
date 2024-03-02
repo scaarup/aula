@@ -1,4 +1,7 @@
-default_config:
+config:
+history:
+logbook:
+sun:
 
 logger:
   default: info
