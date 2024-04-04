@@ -1,6 +1,6 @@
 async-retrying==0.2.2
 colorlog==6.8.2
-homeassistant==2024.2.5
+homeassistant==2024.4.0
 pip==24.0
 python-dateutil==2.8.2
 numpy==1.26.4
