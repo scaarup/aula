@@ -417,12 +417,16 @@ class Client:
                     )
                     # _LOGGER.debug("ugeplaner status_code "+str(ugeplaner.status_code))
                     # _LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
-                    for person in ugeplaner.json()["personer"]:
-                        ugeplan = person["institutioner"][0]["ugebreve"][0]["indhold"]
-                        if thisnext == "this":
-                            self.ugep_attr[person["navn"].split()[0]] = ugeplan
-                        elif thisnext == "next":
-                            self.ugepnext_attr[person["navn"].split()[0]] = ugeplan
+                    try:
+                        for person in ugeplaner.json()["personer"]:
+                            ugeplan = person["institutioner"][0]["ugebreve"][0]["indhold"]
+                            if thisnext == "this":
+                                self.ugep_attr[person["navn"].split()[0]] = ugeplan
+                            elif thisnext == "next":
+                                self.ugepnext_attr[person["navn"].split()[0]] = ugeplan
+                    except:
+                        _LOGGER.debug("Cannot fetch ugeplaner, so setting as empty")
+                        _LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
 
                 if "0030" in self.widgets:
                     _LOGGER.debug("In the MU Opgaver flow")
