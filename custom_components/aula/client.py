@@ -727,31 +727,34 @@ class Client:
                         data = json.loads(response.text, strict=False)
                         # _LOGGER.debug("Meebook ugeplan raw response from week "+week+": "+str(response.text))
 
-                    for person in data:
-                        _LOGGER.debug("Meebook ugeplan for " + person["name"])
-                        ugep = ""
-                        ugeplan = person["weekPlan"]
-                        for day in ugeplan:
-                            ugep = ugep + "<h3>" + day["date"] + "</h3>"
-                            if len(day["tasks"]) > 0:
-                                for task in day["tasks"]:
-                                    if not task["pill"] == "Ingen fag tilknyttet":
-                                        ugep = ugep + "<b>" + task["pill"] + "</b><br>"
-                                    ugep = ugep + task["author"] + "<br><br>"
-                                    content = re.sub(
-                                        r"([0-9]+)(\.)", r"\1\.", task["content"]
-                                    )
-                                    ugep = ugep + content + "<br><br>"
-                            else:
-                                ugep = ugep + "-"
-                        try:
-                            name = person["name"].split()[0]
-                        except:
-                            name = person["name"]
-                        if thisnext == "this":
-                            self.ugep_attr[name] = ugep
-                        elif thisnext == "next":
-                            self.ugepnext_attr[name] = ugep
+                    if 'exceptionMessage' in data:
+                        _LOGGER.warning("Ignoring error in fetching data from Meebook. Error exception message: " + data['exceptionMessage'])
+                    else:
+                        for person in data:
+                            _LOGGER.debug("Meebook ugeplan for " + person["name"])
+                            ugep = ""
+                            ugeplan = person["weekPlan"]
+                            for day in ugeplan:
+                                ugep = ugep + "<h3>" + day["date"] + "</h3>"
+                                if len(day["tasks"]) > 0:
+                                    for task in day["tasks"]:
+                                        if not task["pill"] == "Ingen fag tilknyttet":
+                                            ugep = ugep + "<b>" + task["pill"] + "</b><br>"
+                                        ugep = ugep + task["author"] + "<br><br>"
+                                        content = re.sub(
+                                            r"([0-9]+)(\.)", r"\1\.", task["content"]
+                                        )
+                                        ugep = ugep + content + "<br><br>"
+                                else:
+                                    ugep = ugep + "-"
+                            try:
+                                name = person["name"].split()[0]
+                            except:
+                                name = person["name"]
+                            if thisnext == "this":
+                                self.ugep_attr[name] = ugep
+                            elif thisnext == "next":
+                                self.ugepnext_attr[name] = ugep
 
             now = datetime.datetime.now() + datetime.timedelta(weeks=1)
             thisweek = datetime.datetime.now().strftime("%Y-W%W")
