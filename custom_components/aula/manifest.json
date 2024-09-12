@@ -15,5 +15,5 @@
         "beautifulsoup4",
         "lxml"
     ],
-    "version": "--path"
+    "version": "0.1.40"
 }
