@@ -60,7 +60,7 @@ class CalendarDevice(CalendarEntity):
     def update(self):
         """Update all Calendars."""
         self.data.update()
-        
+
     async def async_get_events(self, hass, start_date, end_date):
         """Get all events in a specific time frame."""
         return await self.data.async_get_events(hass, start_date, end_date)
@@ -109,7 +109,7 @@ class CalendarData:
                             _LOGGER.debug("Could not find any teacher information for "+summary+" at "+str(start))
                             teacher = ""
                 event = CalendarEvent(
-                    summary=summary+", "+teacher,
+                    summary=str(summary) + ", " + str(teacher),
                     start = start,
                     end = end,
                 )
