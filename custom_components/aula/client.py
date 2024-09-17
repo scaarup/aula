@@ -426,7 +426,7 @@ class Client:
                                 self.ugepnext_attr[person["navn"].split()[0]] = ugeplan
                     except:
                         _LOGGER.debug("Cannot fetch ugeplaner, so setting as empty")
-                        _LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
+                        _LOGGER.debug("ugeplaner response " + str(ugeplaner.text))
 
                 if "0030" in self.widgets:
                     _LOGGER.debug("In the MU Opgaver flow")
@@ -666,7 +666,10 @@ class Client:
                                 mytime = datetime.datetime.strptime(
                                     reminder["dueDate"], "%Y-%m-%dT%H:%M:%SZ"
                                 )
-                                ftime = mytime.strftime("%A %d. %B")
+                                mytime_copenhagen = pytz.utc.localize(
+                                    mytime
+                                ).astimezone(pytz.timezone("Europe/Copenhagen"))
+                                ftime = mytime_copenhagen.strftime("%A %d. %B")
                                 huskel = huskel + "<h3>" + ftime + "</h3>"
                                 huskel = (
                                     huskel
@@ -727,8 +730,11 @@ class Client:
                         data = json.loads(response.text, strict=False)
                         # _LOGGER.debug("Meebook ugeplan raw response from week "+week+": "+str(response.text))
 
-                    if 'exceptionMessage' in data:
-                        _LOGGER.warning("Ignoring error in fetching data from Meebook. Error exception message: " + data['exceptionMessage'])
+                    if "exceptionMessage" in data:
+                        _LOGGER.warning(
+                            "Ignoring error in fetching data from Meebook. Error exception message: "
+                            + data["exceptionMessage"]
+                        )
                     else:
                         for person in data:
                             _LOGGER.debug("Meebook ugeplan for " + person["name"])
@@ -739,7 +745,9 @@ class Client:
                                 if len(day["tasks"]) > 0:
                                     for task in day["tasks"]:
                                         if not task["pill"] == "Ingen fag tilknyttet":
-                                            ugep = ugep + "<b>" + task["pill"] + "</b><br>"
+                                            ugep = (
+                                                ugep + "<b>" + task["pill"] + "</b><br>"
+                                            )
                                         ugep = ugep + task["author"] + "<br><br>"
                                         content = re.sub(
                                             r"([0-9]+)(\.)", r"\1\.", task["content"]
