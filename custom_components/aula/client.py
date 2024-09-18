@@ -11,6 +11,7 @@ from .const import (
     MEEBOOK_API,
     SYSTEMATIC_API,
     EASYIQ_API,
+    HUSKELISTEN_LOCALITY,
 )
 from homeassistant.exceptions import ConfigEntryNotReady
 
@@ -419,7 +420,9 @@ class Client:
                     # _LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
                     try:
                         for person in ugeplaner.json()["personer"]:
-                            ugeplan = person["institutioner"][0]["ugebreve"][0]["indhold"]
+                            ugeplan = person["institutioner"][0]["ugebreve"][0][
+                                "indhold"
+                            ]
                             if thisnext == "this":
                                 self.ugep_attr[person["navn"].split()[0]] = ugeplan
                             elif thisnext == "next":
@@ -668,7 +671,7 @@ class Client:
                                 )
                                 mytime_copenhagen = pytz.utc.localize(
                                     mytime
-                                ).astimezone(pytz.timezone("Europe/Copenhagen"))
+                                ).astimezone(pytz.timezone(HUSKELISTEN_LOCALITY))
                                 ftime = mytime_copenhagen.strftime("%A %d. %B")
                                 huskel = huskel + "<h3>" + ftime + "</h3>"
                                 huskel = (
