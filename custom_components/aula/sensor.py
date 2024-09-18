@@ -22,6 +22,7 @@ from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
 from .const import (
     CONF_SCHOOLSCHEDULE,
     CONF_UGEPLAN,
+    CONF_MU_OPGAVER,
     DOMAIN,
 )
 
@@ -52,6 +53,7 @@ async def async_setup_entry(
         config[CONF_PASSWORD],
         config[CONF_SCHOOLSCHEDULE],
         config[CONF_UGEPLAN],
+        config[CONF_MU_OPGAVER],
     )
     hass.data[DOMAIN]["client"] = client
 
@@ -98,10 +100,15 @@ async def async_setup_entry(
     ####
 
     global ugeplan
+    global mu_opgaver
     if config[CONF_UGEPLAN]:
         ugeplan = True
     else:
         ugeplan = False
+    if config[CONF_MU_OPGAVER]:
+        mu_opgaver = True
+    else:
+        mu_opgaver = False
     async_add_entities(entities, update_before_add=True)
 
     def custom_api_call_service(call: ServiceCall) -> ServiceResponse:
@@ -197,6 +204,25 @@ class AulaSensor(Entity):
         attributes = {}
         # _LOGGER.debug("Dump of ugep_attr: "+str(self._client.ugep_attr))
         # _LOGGER.debug("Dump of ugepnext_attr: "+str(self._client.ugepnext_attr))
+        if mu_opgaver:
+            #
+            try:
+                attributes["mu_opgaver"] = self._client.mu_opgaver_attr[
+                    self._child["name"].split()[0]
+                ]
+            except:
+                attributes["mu_opgaver"] = "Min Uddannelse Opgaver not available"
+            try:
+                attributes["mu_opgaver_next"] = self._client.mu_opgavernext_attr[
+                    self._child["name"].split()[0]
+                ]
+            except:
+                attributes["mu_opgaver_next"] = "Not available"
+                _LOGGER.debug(
+                    "Could not get Min Uddannelse Opgaver for next week for child "
+                    + str(self._child["name"].split()[0])
+                    + ". Perhaps not available yet."
+                )
         if ugeplan:
             if "0062" in self._client.widgets:
                 try:

@@ -10,13 +10,13 @@ from homeassistant.helpers.entity_registry import (
 )
 import voluptuous as vol
 
-from .const import CONF_SCHOOLSCHEDULE, CONF_UGEPLAN, DOMAIN
+from .const import CONF_SCHOOLSCHEDULE, CONF_UGEPLAN, CONF_MU_OPGAVER, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
 AUTH_SCHEMA = vol.Schema(
     {
-            vol.Required(CONF_USERNAME): cv.string, vol.Required(CONF_PASSWORD): cv.string, vol.Optional("schoolschedule"): cv.boolean,vol.Optional("ugeplan"): cv.boolean
+            vol.Required(CONF_USERNAME): cv.string, vol.Required(CONF_PASSWORD): cv.string, vol.Optional("schoolschedule"): cv.boolean,vol.Optional("ugeplan"): cv.boolean,vol.Optional("mu_opgaver"): cv.boolean
     }
 )
 
@@ -39,6 +39,11 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self.data[CONF_UGEPLAN] = False
             else:
                 self.data[CONF_UGEPLAN] = user_input.get("ugeplan")
+            if user_input.get("mu_opgaver") == None:
+                self.data[CONF_MU_OPGAVER] = False
+            else:
+                self.data[CONF_MU_OPGAVER] = user_input.get("mu_opgaver")
+            _LOGGER.debug(user_input.get("mu_opgaver"))
             # This will log password in plain text: _LOGGER.debug(self.data)
             return self.async_create_entry(title="Aula", data=self.data)
 

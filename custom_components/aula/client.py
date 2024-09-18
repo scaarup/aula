@@ -25,12 +25,13 @@ class Client:
     widgets = {}
     tokens = {}
 
-    def __init__(self, username, password, schoolschedule, ugeplan):
+    def __init__(self, username, password, schoolschedule, ugeplan, mu_opgaver):
         self._username = username
         self._password = password
         self._session = None
         self._schoolschedule = schoolschedule
         self._ugeplan = ugeplan
+        self._mu_opgaver = mu_opgaver
 
     def custom_api_call(self, uri, post_data):
         csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]
@@ -177,6 +178,8 @@ class Client:
             + str(self._schoolschedule)
             + ", config - ugeplaner: "
             + str(self._ugeplan)
+            + ", config - MU opgaver: "
+            + str(self._mu_opgaver)
         )
 
     def get_widgets(self):
@@ -372,6 +375,77 @@ class Client:
                     + str(res.text)
                 )
         # End of calendar
+        # MU Opgaver:
+        if self._mu_opgaver == True:
+            guardian = self._session.get(
+                self.apiurl + "?method=profiles.getProfileContext&portalrole=guardian",
+                verify=True,
+            ).json()["data"]["userId"]
+            childUserIds = ",".join(self._childuserids)
+
+            if len(self.widgets) == 0:
+                self.get_widgets()
+            if (
+                not "0030" in self.widgets
+            ):
+                _LOGGER.error(
+                    "You have enabled Min Uddannelse Opgaver, but we cannot find any supported widgets (0030) in Aula."
+                )
+
+            def mu_opgaver(week, thisnext):
+                  if "0030" in self.widgets:
+                    _LOGGER.debug("In the MU Opgaver flow")
+                    token = self.get_token("0030")
+                    get_payload = (
+                        "/opgaveliste?assuranceLevel=2&childFilter="
+                        + childUserIds
+                        + "&currentWeekNumber="
+                        + week
+                        + "&isMobileApp=false&placement=narrow&sessionUUID="
+                        + guardian
+                        + "&userProfile=guardian"
+                    )
+                    mu_opgaver = requests.get(
+                        MIN_UDDANNELSE_API + get_payload,
+                        headers={"Authorization": token, "accept": "application/json"},
+                        verify=True,
+                    )
+                    _LOGGER.debug(
+                        "MU Opgaver status_code " + str(mu_opgaver.status_code)
+                    )
+                    _LOGGER.debug("MU Opgaver response " + str(mu_opgaver.text))
+                    for full_name in self._childnames.items():
+                        name_parts = full_name[1].split()
+                        first_name = name_parts[0]
+                        _ugep = ""
+                        for i in mu_opgaver.json()["opgaver"]:
+                            _LOGGER.debug(
+                                "i kuvertnavn split " + str(i["kuvertnavn"].split()[0])
+                            )
+                            _LOGGER.debug("first_name " + first_name)
+                            if i["kuvertnavn"].split()[0] == first_name:
+                                _ugep = _ugep + "<h2>" + i["title"] + "</h2>"
+                                _ugep = _ugep + "<h3>" + i["kuvertnavn"] + "</h3>"
+                                _ugep = _ugep + "Ugedag: " + i["ugedag"] + "<br>"
+                                _ugep = _ugep + "Type: " + i["opgaveType"] + "<br>"
+                                for h in i["hold"]:
+                                    _ugep = _ugep + "Hold: " + h["navn"] + "<br>"
+                                try:
+                                    _ugep = _ugep + "Forløb: " + i["forloeb"]["navn"]
+                                except:
+                                    _LOGGER.debug("Did not find forloeb key: " + str(i))
+                        if thisnext == "this":
+                            self.mu_opgaver_attr[first_name] = _ugep
+                        elif thisnext == "next":
+                            self.mu_opgaver_next_attr[first_name] = _ugep
+                        _LOGGER.debug("MU Opgaver result: " + str(_ugep))
+
+            now = datetime.datetime.now() + datetime.timedelta(weeks=1)
+            thisweek = datetime.datetime.now().strftime("%Y-W%W")
+            nextweek = now.strftime("%Y-W%W")
+            mu_opgaver(thisweek, "this")
+            mu_opgaver(nextweek, "next")
+        # End of MU Opgaver
 
         # Ugeplaner:
         if self._ugeplan == True:
@@ -387,11 +461,10 @@ class Client:
                 not "0029" in self.widgets
                 and not "0004" in self.widgets
                 and not "0062" in self.widgets
-                and not "0030" in self.widgets
                 and not "0001" in self.widgets
             ):
                 _LOGGER.error(
-                    "You have enabled ugeplaner, but we cannot find any supported widgets (0029,0004,0030,0001) in Aula."
+                    "You have enabled ugeplaner, but we cannot find any supported widgets (0029,0004,0001) in Aula."
                 )
             if "0029" in self.widgets and "0004" in self.widgets:
                 _LOGGER.warning(
@@ -399,7 +472,7 @@ class Client:
                 )
 
             def ugeplan(week, thisnext):
-                if "0029" in self.widgets and "0030" not in self.widgets:
+                if "0029" in self.widgets:
                     token = self.get_token("0029")
                     get_payload = (
                         "/ugebrev?assuranceLevel=2&childFilter="
@@ -427,53 +500,6 @@ class Client:
                     except:
                         _LOGGER.debug("Cannot fetch ugeplaner, so setting as empty")
                         _LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
-
-                if "0030" in self.widgets:
-                    _LOGGER.debug("In the MU Opgaver flow")
-                    token = self.get_token("0030")
-                    get_payload = (
-                        "/opgaveliste?assuranceLevel=2&childFilter="
-                        + childUserIds
-                        + "&currentWeekNumber="
-                        + week
-                        + "&isMobileApp=false&placement=narrow&sessionUUID="
-                        + guardian
-                        + "&userProfile=guardian"
-                    )
-                    ugeplaner = requests.get(
-                        MIN_UDDANNELSE_API + get_payload,
-                        headers={"Authorization": token, "accept": "application/json"},
-                        verify=True,
-                    )
-                    _LOGGER.debug(
-                        "MU Opgaver status_code " + str(ugeplaner.status_code)
-                    )
-                    _LOGGER.debug("MU Opgaver response " + str(ugeplaner.text))
-                    for full_name in self._childnames.items():
-                        name_parts = full_name[1].split()
-                        first_name = name_parts[0]
-                        _ugep = ""
-                        for i in ugeplaner.json()["opgaver"]:
-                            _LOGGER.debug(
-                                "i kuvertnavn split " + str(i["kuvertnavn"].split()[0])
-                            )
-                            _LOGGER.debug("first_name " + first_name)
-                            if i["kuvertnavn"].split()[0] == first_name:
-                                _ugep = _ugep + "<h2>" + i["title"] + "</h2>"
-                                _ugep = _ugep + "<h3>" + i["kuvertnavn"] + "</h3>"
-                                _ugep = _ugep + "Ugedag: " + i["ugedag"] + "<br>"
-                                _ugep = _ugep + "Type: " + i["opgaveType"] + "<br>"
-                                for h in i["hold"]:
-                                    _ugep = _ugep + "Hold: " + h["navn"] + "<br>"
-                                try:
-                                    _ugep = _ugep + "Forløb: " + i["forloeb"]["navn"]
-                                except:
-                                    _LOGGER.debug("Did not find forloeb key: " + str(i))
-                        if thisnext == "this":
-                            self.ugep_attr[first_name] = _ugep
-                        elif thisnext == "next":
-                            self.ugepnext_attr[first_name] = _ugep
-                        _LOGGER.debug("MU Opgaver result: " + str(_ugep))
 
                 if "0001" in self.widgets:
                     import calendar
