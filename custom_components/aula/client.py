@@ -22,6 +22,8 @@ class Client:
     presence = {}
     ugep_attr = {}
     ugepnext_attr = {}
+    mu_opgaver_attr = {}
+    mu_opgaver_next_attr = {}
     widgets = {}
     tokens = {}
 
@@ -637,8 +639,7 @@ class Client:
                         "Sec-Fetch-Dest": "empty",
                         "Sec-Fetch-Mode": "cors",
                         "Sec-Fetch-Site": "cross-site",
-                        "User-Agent": "Mozilla/5.0 (X11; CrOS x86_64 15183.51.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
-                        "zone": "Europe/Copenhagen",
+                        "User-Agent": "Mozilla/5.0 (X11; CrOS x86_64 15183.51.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
                     }
 
                     children = "&children=".join(self._childuserids)
