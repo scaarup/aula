@@ -419,14 +419,16 @@ class Client:
                     # _LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
                     try:
                         for person in ugeplaner.json()["personer"]:
-                            ugeplan = person["institutioner"][0]["ugebreve"][0]["indhold"]
+                            ugeplan = person["institutioner"][0]["ugebreve"][0][
+                                "indhold"
+                            ]
                             if thisnext == "this":
                                 self.ugep_attr[person["navn"].split()[0]] = ugeplan
                             elif thisnext == "next":
                                 self.ugepnext_attr[person["navn"].split()[0]] = ugeplan
                     except:
                         _LOGGER.debug("Cannot fetch ugeplaner, so setting as empty")
-                        _LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
+                        _LOGGER.debug("ugeplaner response " + str(ugeplaner.text))
 
                 if "0030" in self.widgets:
                     _LOGGER.debug("In the MU Opgaver flow")
@@ -617,7 +619,7 @@ class Client:
 
                     children = "&children=".join(self._childuserids)
                     institutions = "&institutions=".join(self._institutionProfiles)
-                    timedelta = datetime.datetime.now() + datetime.timedelta(days=180)
+                    timedelta = datetime.datetime.now() + datetime.timedelta(days=7)
                     From = datetime.datetime.now().strftime("%Y-%m-%d")
                     dueNoLaterThan = timedelta.strftime("%Y-%m-%d")
                     get_payload = (
@@ -663,17 +665,26 @@ class Client:
                         reminders = person["teamReminders"]
                         if len(reminders) > 0:
                             for reminder in reminders:
-                                mytime = datetime.datetime.strptime(
+                                local_timezone = (
+                                    datetime.datetime.now(datetime.timezone.utc)
+                                    .astimezone()
+                                    .tzinfo
+                                )
+                                due_date = datetime.datetime.strptime(
                                     reminder["dueDate"], "%Y-%m-%dT%H:%M:%SZ"
                                 )
-                                ftime = mytime.strftime("%A %d. %B")
-                                huskel = huskel + "<h3>" + ftime + "</h3>"
-                                huskel = (
-                                    huskel
-                                    + "<b>"
-                                    + reminder["subjectName"]
-                                    + "</b><br>"
+                                local_due_date = (
+                                    due_date.replace(tzinfo=datetime.timezone.utc)
+                                    .astimezone(local_timezone)
+                                    .strftime("%A %d. %B")
                                 )
+                                huskel = huskel + "<h3>" + local_due_date + "</h3>"
+                                subjectName = (
+                                    reminder["subjectName"]
+                                    if "subjectName" in reminder
+                                    else ""
+                                )
+                                huskel = huskel + "<b>" + subjectName + "</b><br>"
                                 huskel = (
                                     huskel + "af " + reminder["createdBy"] + "<br><br>"
                                 )
@@ -727,8 +738,11 @@ class Client:
                         data = json.loads(response.text, strict=False)
                         # _LOGGER.debug("Meebook ugeplan raw response from week "+week+": "+str(response.text))
 
-                    if 'exceptionMessage' in data:
-                        _LOGGER.warning("Ignoring error in fetching data from Meebook. Error exception message: " + data['exceptionMessage'])
+                    if "exceptionMessage" in data:
+                        _LOGGER.warning(
+                            "Ignoring error in fetching data from Meebook. Error exception message: "
+                            + data["exceptionMessage"]
+                        )
                     else:
                         for person in data:
                             _LOGGER.debug("Meebook ugeplan for " + person["name"])
@@ -739,7 +753,9 @@ class Client:
                                 if len(day["tasks"]) > 0:
                                     for task in day["tasks"]:
                                         if not task["pill"] == "Ingen fag tilknyttet":
-                                            ugep = ugep + "<b>" + task["pill"] + "</b><br>"
+                                            ugep = (
+                                                ugep + "<b>" + task["pill"] + "</b><br>"
+                                            )
                                         ugep = ugep + task["author"] + "<br><br>"
                                         content = re.sub(
                                             r"([0-9]+)(\.)", r"\1\.", task["content"]
