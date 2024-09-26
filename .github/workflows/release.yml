@@ -24,13 +24,13 @@ jobs:
           git config user.email github-actions@github.com
           git add ./custom_components/aula/manifest.json
           git commit -m "Updated manifest.json"
-          git push origin HEAD:main
+          git push origin HEAD:refs/heads/main
       - name: Create zip
         run: |
           cd custom_components/aula
           zip aula.zip -r ./
       - name: Upload zip to release
-        uses: svenstaro/upload-release-action@2.7.0
+        uses: svenstaro/upload-release-action@2.9.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: ./custom_components/aula/aula.zip
