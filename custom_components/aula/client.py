@@ -11,7 +11,6 @@ from .const import (
     MEEBOOK_API,
     SYSTEMATIC_API,
     EASYIQ_API,
-    HUSKELISTEN_LOCALITY,
 )
 from homeassistant.exceptions import ConfigEntryNotReady
 
@@ -620,7 +619,7 @@ class Client:
 
                     children = "&children=".join(self._childuserids)
                     institutions = "&institutions=".join(self._institutionProfiles)
-                    timedelta = datetime.datetime.now() + datetime.timedelta(days=180)
+                    timedelta = datetime.datetime.now() + datetime.timedelta(days=7)
                     From = datetime.datetime.now().strftime("%Y-%m-%d")
                     dueNoLaterThan = timedelta.strftime("%Y-%m-%d")
                     get_payload = (
@@ -666,20 +665,26 @@ class Client:
                         reminders = person["teamReminders"]
                         if len(reminders) > 0:
                             for reminder in reminders:
-                                mytime = datetime.datetime.strptime(
+                                local_timezone = (
+                                    datetime.datetime.now(datetime.timezone.utc)
+                                    .astimezone()
+                                    .tzinfo
+                                )
+                                due_date = datetime.datetime.strptime(
                                     reminder["dueDate"], "%Y-%m-%dT%H:%M:%SZ"
                                 )
-                                mytime_copenhagen = pytz.utc.localize(
-                                    mytime
-                                ).astimezone(pytz.timezone(HUSKELISTEN_LOCALITY))
-                                ftime = mytime_copenhagen.strftime("%A %d. %B")
-                                huskel = huskel + "<h3>" + ftime + "</h3>"
-                                huskel = (
-                                    huskel
-                                    + "<b>"
-                                    + reminder["subjectName"]
-                                    + "</b><br>"
+                                local_due_date = (
+                                    due_date.replace(tzinfo=datetime.timezone.utc)
+                                    .astimezone(local_timezone)
+                                    .strftime("%A %d. %B")
                                 )
+                                huskel = huskel + "<h3>" + local_due_date + "</h3>"
+                                subjectName = (
+                                    reminder["subjectName"]
+                                    if "subjectName" in reminder
+                                    else ""
+                                )
+                                huskel = huskel + "<b>" + subjectName + "</b><br>"
                                 huskel = (
                                     huskel + "af " + reminder["createdBy"] + "<br><br>"
                                 )
