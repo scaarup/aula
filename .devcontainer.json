@@ -34,5 +34,8 @@
             }
         }
     },
-    "remoteUser": "root"
+    "remoteUser": "root",
+    "remoteEnv": {
+        "TZ": "Europe/Copenhagen"
+    }
 }
