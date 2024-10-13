@@ -640,12 +640,13 @@ class Client:
                         "Sec-Fetch-Dest": "empty",
                         "Sec-Fetch-Mode": "cors",
                         "Sec-Fetch-Site": "cross-site",
-                        "User-Agent": "Mozilla/5.0 (X11; CrOS x86_64 15183.51.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
+                        "User-Agent": "Mozilla/5.0 (X11; CrOS x86_64 15183.51.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
+                        "zone": "Europe/Copenhagen"
                     }
 
                     children = "&children=".join(self._childuserids)
                     institutions = "&institutions=".join(self._institutionProfiles)
-                    timedelta = datetime.datetime.now() + datetime.timedelta(days=180)
+                    timedelta = datetime.datetime.now() + datetime.timedelta(days=7)
                     From = datetime.datetime.now().strftime("%Y-%m-%d")
                     dueNoLaterThan = timedelta.strftime("%Y-%m-%d")
                     get_payload = (
@@ -691,17 +692,26 @@ class Client:
                         reminders = person["teamReminders"]
                         if len(reminders) > 0:
                             for reminder in reminders:
-                                mytime = datetime.datetime.strptime(
+                                local_timezone = (
+                                    datetime.datetime.now(datetime.timezone.utc)
+                                    .astimezone()
+                                    .tzinfo
+                                )
+                                due_date = datetime.datetime.strptime(
                                     reminder["dueDate"], "%Y-%m-%dT%H:%M:%SZ"
                                 )
-                                ftime = mytime.strftime("%A %d. %B")
-                                huskel = huskel + "<h3>" + ftime + "</h3>"
-                                huskel = (
-                                    huskel
-                                    + "<b>"
-                                    + reminder["subjectName"]
-                                    + "</b><br>"
+                                local_due_date = (
+                                    due_date.replace(tzinfo=datetime.timezone.utc)
+                                    .astimezone(local_timezone)
+                                    .strftime("%A %d. %B")
                                 )
+                                huskel = huskel + "<h3>" + local_due_date + "</h3>"
+                                subjectName = (
+                                    reminder["subjectName"]
+                                    if "subjectName" in reminder
+                                    else ""
+                                )
+                                huskel = huskel + "<b>" + subjectName + "</b><br>"
                                 huskel = (
                                     huskel + "af " + reminder["createdBy"] + "<br><br>"
                                 )
