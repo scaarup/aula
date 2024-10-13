@@ -27,13 +27,14 @@ class Client:
     widgets = {}
     tokens = {}
 
-    def __init__(self, username, password, schoolschedule, ugeplan, mu_opgaver):
+    def __init__(self, username, password, schoolschedule, ugeplan, mu_opgaver, unread_messages=0):
         self._username = username
         self._password = password
         self._session = None
         self._schoolschedule = schoolschedule
         self._ugeplan = ugeplan
         self._mu_opgaver = mu_opgaver
+        self.unread_messages = unread_messages
 
     def custom_api_call(self, uri, post_data):
         csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]

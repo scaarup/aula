@@ -91,13 +91,8 @@ async def async_setup_entry(
     # We have data and can now set up the calendar platform:
     if config[CONF_SCHOOLSCHEDULE]:
         hass.async_create_task(
-            hass.config_entries.async_forward_entry_setup(config_entry, "calendar")
+            hass.config_entries.async_forward_entry_setups(config_entry, ["calendar"])
         )
-    ####
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(config_entry, "binary_sensor")
-    )
-    ####
 
     global ugeplan
     global mu_opgaver

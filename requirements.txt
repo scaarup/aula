@@ -1,7 +1,8 @@
 async-retrying==0.2.2
 colorlog==6.8.2
-homeassistant==2024.9.2
-pip==24.0
+homeassistant==2024.10.2
+pip>=21.0,<24.3
 python-dateutil==2.8.2
 numpy==1.26.4
 mutagen==1.47.0
+aiohttp_fast_zlib==0.1.1
