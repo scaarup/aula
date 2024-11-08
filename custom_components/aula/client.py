@@ -756,10 +756,17 @@ class Client:
                                             ugep = (
                                                 ugep + "<b>" + task["pill"] + "</b><br>"
                                             )
-                                        ugep = ugep + task["author"] + "<br><br>"
-                                        content = re.sub(
-                                            r"([0-9]+)(\.)", r"\1\.", task["content"]
-                                        )
+                                        author = task.get('author')
+                                        if author:
+                                            ugep = ugep + author + "<br><br>"
+                                        if task["type"] == "comment" or task["type"] == "task":
+                                            content = re.sub(
+                                                r"([0-9]+)(\.)", r"\1\.", task["content"]
+                                            )
+                                        elif task["type"] == "assignment":
+                                            content = re.sub(
+                                                r"([0-9]+)(\.)", r"\1\.", task["title"]
+                                            )
                                         ugep = ugep + content + "<br><br>"
                                 else:
                                     ugep = ugep + "-"
