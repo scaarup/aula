@@ -22,15 +22,19 @@ class Client:
     presence = {}
     ugep_attr = {}
     ugepnext_attr = {}
+    mu_opgaver_attr = {}
+    mu_opgaver_next_attr = {}
     widgets = {}
     tokens = {}
 
-    def __init__(self, username, password, schoolschedule, ugeplan):
+    def __init__(self, username, password, schoolschedule, ugeplan, mu_opgaver, unread_messages=0):
         self._username = username
         self._password = password
         self._session = None
         self._schoolschedule = schoolschedule
         self._ugeplan = ugeplan
+        self._mu_opgaver = mu_opgaver
+        self.unread_messages = unread_messages
 
     def custom_api_call(self, uri, post_data):
         csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]
@@ -177,6 +181,8 @@ class Client:
             + str(self._schoolschedule)
             + ", config - ugeplaner: "
             + str(self._ugeplan)
+            + ", config - MU opgaver: "
+            + str(self._mu_opgaver)
         )
 
     def get_widgets(self):
@@ -187,7 +193,7 @@ class Client:
             widgetid = str(widget["widget"]["widgetId"])
             widgetname = widget["widget"]["name"]
             self.widgets[widgetid] = widgetname
-        _LOGGER.debug("Widgets found: " + str(self.widgets))
+        _LOGGER.info("Widgets found: " + str(self.widgets))
 
     def get_token(self, widgetid, mock=False):
         if widgetid in self.tokens:
@@ -335,7 +341,7 @@ class Client:
                         break
 
         # Calendar:
-        if self._schoolschedule == True:
+        if self._schoolschedule is True:
             instProfileIds = ",".join(self._childids)
             csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]
             headers = {"csrfp-token": csrf_token, "content-type": "application/json"}
@@ -367,14 +373,89 @@ class Client:
                 with open("skoleskema.json", "w") as skoleskema_json:
                     json.dump(res.text, skoleskema_json)
             except:
-                _LOGGER.warn(
+                _LOGGER.warning(
                     "Got the following reply when trying to fetch calendars: "
                     + str(res.text)
                 )
         # End of calendar
+        # MU Opgaver:
+        if self._mu_opgaver is True:
+            try:
+                guardian = self._session.get(
+                    self.apiurl + "?method=profiles.getProfileContext&portalrole=guardian",
+                    verify=True,
+                ).json()["data"]["userId"]
+            except Exception as e:
+                _LOGGER.warning(f"Error retrieving MU Opgaver: Empty or ambiguous response: {e}")
+                return
+            childUserIds = ",".join(self._childuserids)
+
+            if len(self.widgets) == 0:
+                self.get_widgets()
+            if (
+                "0030" not in self.widgets
+            ):
+                _LOGGER.error(
+                    "You have enabled Min Uddannelse Opgaver, but we cannot find any supported widgets (0030) in Aula."
+                )
+
+            def mu_opgaver(week, thisnext):
+                  if "0030" in self.widgets:
+                    _LOGGER.debug("In the MU Opgaver flow")
+                    token = self.get_token("0030")
+                    get_payload = (
+                        "/opgaveliste?assuranceLevel=2&childFilter="
+                        + childUserIds
+                        + "&currentWeekNumber="
+                        + week
+                        + "&isMobileApp=false&placement=narrow&sessionUUID="
+                        + guardian
+                        + "&userProfile=guardian"
+                    )
+                    mu_opgaver = requests.get(
+                        MIN_UDDANNELSE_API + get_payload,
+                        headers={"Authorization": token, "accept": "application/json"},
+                        verify=True,
+                    )
+                    _LOGGER.debug(
+                        "MU Opgaver status_code " + str(mu_opgaver.status_code)
+                    )
+                    _LOGGER.debug("MU Opgaver response " + str(mu_opgaver.text))
+                    for full_name in self._childnames.items():
+                        name_parts = full_name[1].split()
+                        first_name = name_parts[0]
+                        _ugep = ""
+                        for i in mu_opgaver.json()["opgaver"]:
+                            _LOGGER.debug(
+                                "i kuvertnavn split " + str(i["kuvertnavn"].split()[0])
+                            )
+                            _LOGGER.debug("first_name " + first_name)
+                            if i["kuvertnavn"].split()[0] == first_name:
+                                _ugep = _ugep + "<h2>" + i["title"] + "</h2>"
+                                _ugep = _ugep + "<h3>" + i["kuvertnavn"] + "</h3>"
+                                _ugep = _ugep + "Ugedag: " + i["ugedag"] + "<br>"
+                                _ugep = _ugep + "Type: " + i["opgaveType"] + "<br>"
+                                for h in i["hold"]:
+                                    _ugep = _ugep + "Hold: " + h["navn"] + "<br>"
+                                try:
+                                    _ugep = _ugep + "Forløb: " + i["forloeb"]["navn"]
+                                except:
+                                    _LOGGER.debug("Did not find forloeb key: " + str(i))
+                        if thisnext == "this":
+                            self.mu_opgaver_attr[first_name] = _ugep
+                        elif thisnext == "next":
+                            self.mu_opgaver_next_attr[first_name] = _ugep
+                        _LOGGER.debug("MU Opgaver result: " + str(_ugep))
+
+            now = datetime.datetime.now() + datetime.timedelta(weeks=1)
+            thisweek = datetime.datetime.now().strftime("%Y-W%W")
+            nextweek = now.strftime("%Y-W%W")
+            mu_opgaver(thisweek, "this")
+            mu_opgaver(nextweek, "next")
+        # End of MU Opgaver
 
         # Ugeplaner:
-        if self._ugeplan == True:
+        if self._ugeplan is True:
             guardian = self._session.get(
                 self.apiurl + "?method=profiles.getProfileContext&portalrole=guardian",
                 verify=True,
@@ -384,14 +465,13 @@ class Client:
             if len(self.widgets) == 0:
                 self.get_widgets()
             if (
-                not "0029" in self.widgets
-                and not "0004" in self.widgets
-                and not "0062" in self.widgets
-                and not "0030" in self.widgets
-                and not "0001" in self.widgets
+                "0029" not in self.widgets
+                and "0004" not in self.widgets
+                and "0062" not in self.widgets
+                and "0001" not in self.widgets
             ):
                 _LOGGER.error(
-                    "You have enabled ugeplaner, but we cannot find any supported widgets (0029,0004,0030,0001) in Aula."
+                    "You have enabled ugeplaner, but we cannot find any supported widgets (0029,0004,0001) in Aula."
                 )
             if "0029" in self.widgets and "0004" in self.widgets:
                 _LOGGER.warning(
@@ -399,7 +479,7 @@ class Client:
                 )
 
             def ugeplan(week, thisnext):
-                if "0029" in self.widgets and "0030" not in self.widgets:
+                if "0029" in self.widgets:
                     token = self.get_token("0029")
                     get_payload = (
                         "/ugebrev?assuranceLevel=2&childFilter="
@@ -419,64 +499,14 @@ class Client:
                     # _LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
                     try:
                         for person in ugeplaner.json()["personer"]:
-                            ugeplan = person["institutioner"][0]["ugebreve"][0][
-                                "indhold"
-                            ]
+                            ugeplan = person["institutioner"][0]["ugebreve"][0]["indhold"]
                             if thisnext == "this":
                                 self.ugep_attr[person["navn"].split()[0]] = ugeplan
                             elif thisnext == "next":
                                 self.ugepnext_attr[person["navn"].split()[0]] = ugeplan
                     except:
                         _LOGGER.debug("Cannot fetch ugeplaner, so setting as empty")
-                        _LOGGER.debug("ugeplaner response " + str(ugeplaner.text))
-
-                if "0030" in self.widgets:
-                    _LOGGER.debug("In the MU Opgaver flow")
-                    token = self.get_token("0030")
-                    get_payload = (
-                        "/opgaveliste?assuranceLevel=2&childFilter="
-                        + childUserIds
-                        + "&currentWeekNumber="
-                        + week
-                        + "&isMobileApp=false&placement=narrow&sessionUUID="
-                        + guardian
-                        + "&userProfile=guardian"
-                    )
-                    ugeplaner = requests.get(
-                        MIN_UDDANNELSE_API + get_payload,
-                        headers={"Authorization": token, "accept": "application/json"},
-                        verify=True,
-                    )
-                    _LOGGER.debug(
-                        "MU Opgaver status_code " + str(ugeplaner.status_code)
-                    )
-                    _LOGGER.debug("MU Opgaver response " + str(ugeplaner.text))
-                    for full_name in self._childnames.items():
-                        name_parts = full_name[1].split()
-                        first_name = name_parts[0]
-                        _ugep = ""
-                        for i in ugeplaner.json()["opgaver"]:
-                            _LOGGER.debug(
-                                "i kuvertnavn split " + str(i["kuvertnavn"].split()[0])
-                            )
-                            _LOGGER.debug("first_name " + first_name)
-                            if i["kuvertnavn"].split()[0] == first_name:
-                                _ugep = _ugep + "<h2>" + i["title"] + "</h2>"
-                                _ugep = _ugep + "<h3>" + i["kuvertnavn"] + "</h3>"
-                                _ugep = _ugep + "Ugedag: " + i["ugedag"] + "<br>"
-                                _ugep = _ugep + "Type: " + i["opgaveType"] + "<br>"
-                                for h in i["hold"]:
-                                    _ugep = _ugep + "Hold: " + h["navn"] + "<br>"
-                                try:
-                                    _ugep = _ugep + "Forløb: " + i["forloeb"]["navn"]
-                                except:
-                                    _LOGGER.debug("Did not find forloeb key: " + str(i))
-                        if thisnext == "this":
-                            self.ugep_attr[first_name] = _ugep
-                        elif thisnext == "next":
-                            self.ugepnext_attr[first_name] = _ugep
-                        _LOGGER.debug("MU Opgaver result: " + str(_ugep))
-
+                        _LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
                 if "0001" in self.widgets:
                     import calendar
 
@@ -614,7 +644,7 @@ class Client:
                         "Sec-Fetch-Mode": "cors",
                         "Sec-Fetch-Site": "cross-site",
                         "User-Agent": "Mozilla/5.0 (X11; CrOS x86_64 15183.51.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
-                        "zone": "Europe/Copenhagen",
+                        "zone": "Europe/Copenhagen"
                     }
 
                     children = "&children=".join(self._childuserids)
@@ -738,11 +768,8 @@ class Client:
                         data = json.loads(response.text, strict=False)
                         # _LOGGER.debug("Meebook ugeplan raw response from week "+week+": "+str(response.text))
 
-                    if "exceptionMessage" in data:
-                        _LOGGER.warning(
-                            "Ignoring error in fetching data from Meebook. Error exception message: "
-                            + data["exceptionMessage"]
-                        )
+                    if 'exceptionMessage' in data:
+                        _LOGGER.warning("Ignoring error in fetching data from Meebook. Error exception message: " + data['exceptionMessage'])
                     else:
                         for person in data:
                             _LOGGER.debug("Meebook ugeplan for " + person["name"])
@@ -753,9 +780,7 @@ class Client:
                                 if len(day["tasks"]) > 0:
                                     for task in day["tasks"]:
                                         if not task["pill"] == "Ingen fag tilknyttet":
-                                            ugep = (
-                                                ugep + "<b>" + task["pill"] + "</b><br>"
-                                            )
+                                            ugep = ugep + "<b>" + task["pill"] + "</b><br>"
                                         author = task.get('author')
                                         if author:
                                             ugep = ugep + author + "<br><br>"

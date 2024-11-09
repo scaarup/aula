@@ -25,8 +25,9 @@
         "data": {
           "username": "Unilogin username",
           "password": "Unilogin password",
-          "schoolschedule": "Add school schedules as calendar entities?",
-          "ugeplan": "Add ugeplaner as sensor attributes?"
+          "schoolschedule": "School schedules as calendar entities",
+          "ugeplan": "Ugeplaner as sensor attributes",
+          "mu_opgaver": "Assignments from Min Uddannelse as sensor attributes"
         },
         "description": "Enter your Unilogin credentials",
         "title": "Authentication"
@@ -44,12 +45,13 @@
           "password": "Unilogin password"
         },
         "description": "Enter your Unilogin credentials",
-        "title": "Authentication"
+        "title": "Authentication & Configuration"
       },
       "options": {
         "data": {
-          "schoolschedule": "Add school schedules as calendar entities?",
-          "ugeplan": "Add ugeplaner as sensor attributes?"
+          "schoolschedule": "School schedules as calendar entities",
+          "ugeplan": "Ugeplaner as sensor attributes",
+          "mu_opgaver": "Assignments from Min Uddannelse as sensor attributes"
         },
         "description": "",
         "title": "Options"

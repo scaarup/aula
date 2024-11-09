@@ -1,7 +1,3 @@
-"""
-Based on https://github.com/JBoye/HA-Aula
-"""
-
 from homeassistant.loader import async_get_integration
 import asyncio
 from homeassistant import config_entries, core
@@ -23,7 +19,7 @@ async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.Conf
     hass.data[DOMAIN][entry.entry_id] = hass_data
 
     hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "sensor")
+        hass.config_entries.async_forward_entry_setups(entry, ["sensor","binary_sensor"])
     )
     return True
 

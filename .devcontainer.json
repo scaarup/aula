@@ -11,6 +11,9 @@
             "onAutoForward": "notify"
         }
     },
+    "remoteEnv": {
+        "TZ": "Europe/Copenhagen"
+    },
     "customizations": {
         "vscode": {
             "extensions": [
