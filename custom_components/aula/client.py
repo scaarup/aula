@@ -193,7 +193,7 @@ class Client:
             widgetid = str(widget["widget"]["widgetId"])
             widgetname = widget["widget"]["name"]
             self.widgets[widgetid] = widgetname
-        _LOGGER.debug("Widgets found: " + str(self.widgets))
+        _LOGGER.info("Widgets found: " + str(self.widgets))
 
     def get_token(self, widgetid, mock=False):
         if widgetid in self.tokens:
@@ -341,7 +341,7 @@ class Client:
                         break
 
         # Calendar:
-        if self._schoolschedule == True:
+        if self._schoolschedule is True:
             instProfileIds = ",".join(self._childids)
             csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]
             headers = {"csrfp-token": csrf_token, "content-type": "application/json"}
@@ -373,23 +373,27 @@ class Client:
                 with open("skoleskema.json", "w") as skoleskema_json:
                     json.dump(res.text, skoleskema_json)
             except:
-                _LOGGER.warn(
+                _LOGGER.warning(
                     "Got the following reply when trying to fetch calendars: "
                     + str(res.text)
                 )
         # End of calendar
         # MU Opgaver:
-        if self._mu_opgaver == True:
-            guardian = self._session.get(
-                self.apiurl + "?method=profiles.getProfileContext&portalrole=guardian",
-                verify=True,
-            ).json()["data"]["userId"]
+        if self._mu_opgaver is True:
+            try:
+                guardian = self._session.get(
+                    self.apiurl + "?method=profiles.getProfileContext&portalrole=guardian",
+                    verify=True,
+                ).json()["data"]["userId"]
+            except Exception as e:
+                _LOGGER.warning(f"Error retrieving MU Opgaver: Empty or ambiguous response: {e}")
+                return
             childUserIds = ",".join(self._childuserids)
 
             if len(self.widgets) == 0:
                 self.get_widgets()
             if (
-                not "0030" in self.widgets
+                "0030" not in self.widgets
             ):
                 _LOGGER.error(
                     "You have enabled Min Uddannelse Opgaver, but we cannot find any supported widgets (0030) in Aula."
@@ -451,7 +455,7 @@ class Client:
         # End of MU Opgaver
 
         # Ugeplaner:
-        if self._ugeplan == True:
+        if self._ugeplan is True:
             guardian = self._session.get(
                 self.apiurl + "?method=profiles.getProfileContext&portalrole=guardian",
                 verify=True,
@@ -461,10 +465,10 @@ class Client:
             if len(self.widgets) == 0:
                 self.get_widgets()
             if (
-                not "0029" in self.widgets
-                and not "0004" in self.widgets
-                and not "0062" in self.widgets
-                and not "0001" in self.widgets
+                "0029" not in self.widgets
+                and "0004" not in self.widgets
+                and "0062" not in self.widgets
+                and "0001" not in self.widgets
             ):
                 _LOGGER.error(
                     "You have enabled ugeplaner, but we cannot find any supported widgets (0029,0004,0001) in Aula."
@@ -503,7 +507,6 @@ class Client:
                     except:
                         _LOGGER.debug("Cannot fetch ugeplaner, so setting as empty")
                         _LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
-
                 if "0001" in self.widgets:
                     import calendar
 
@@ -778,10 +781,17 @@ class Client:
                                     for task in day["tasks"]:
                                         if not task["pill"] == "Ingen fag tilknyttet":
                                             ugep = ugep + "<b>" + task["pill"] + "</b><br>"
-                                        ugep = ugep + task["author"] + "<br><br>"
-                                        content = re.sub(
-                                            r"([0-9]+)(\.)", r"\1\.", task["content"]
-                                        )
+                                        author = task.get('author')
+                                        if author:
+                                            ugep = ugep + author + "<br><br>"
+                                        if task["type"] == "comment" or task["type"] == "task":
+                                            content = re.sub(
+                                                r"([0-9]+)(\.)", r"\1\.", task["content"]
+                                            )
+                                        elif task["type"] == "assignment":
+                                            content = re.sub(
+                                                r"([0-9]+)(\.)", r"\1\.", task["title"]
+                                            )
                                         ugep = ugep + content + "<br><br>"
                                 else:
                                     ugep = ugep + "-"
