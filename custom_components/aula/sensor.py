@@ -53,7 +53,7 @@ async def async_setup_entry(
         config[CONF_PASSWORD],
         config[CONF_SCHOOLSCHEDULE],
         config[CONF_UGEPLAN],
-        config[CONF_MU_OPGAVER],
+        config.get(CONF_MU_OPGAVER, True),
     )
     hass.data[DOMAIN]["client"] = client
 
@@ -100,7 +100,7 @@ async def async_setup_entry(
         ugeplan = True
     else:
         ugeplan = False
-    if config[CONF_MU_OPGAVER]:
+    if config.get(CONF_MU_OPGAVER, True):
         mu_opgaver = True
     else:
         mu_opgaver = False
