@@ -583,47 +583,50 @@ class Client:
                                     "Could not parse timestamp: " + str(date_string)
                                 )
                                 return False
-
-                        for i in ugeplaner.json()["Events"]:
-                            if is_correct_format(i["start"], "%Y/%m/%d %H:%M"):
-                                _LOGGER.debug("No Event")
-                                start_datetime = datetime.datetime.strptime(
-                                    i["start"], "%Y/%m/%d %H:%M"
-                                )
-                                _LOGGER.debug(start_datetime)
-                                end_datetime = datetime.datetime.strptime(
-                                    i["end"], "%Y/%m/%d %H:%M"
-                                )
-                                if start_datetime.date() == end_datetime.date():
-                                    formatted_day = findDay(
-                                        start_datetime.strftime("%d %m %Y")
+                        try:        
+                            for i in ugeplaner.json()["Events"]:
+                                if is_correct_format(i["start"], "%Y/%m/%d %H:%M"):
+                                    _LOGGER.debug("No Event")
+                                    start_datetime = datetime.datetime.strptime(
+                                        i["start"], "%Y/%m/%d %H:%M"
                                     )
-                                    formatted_start = start_datetime.strftime(" %H:%M")
-                                    formatted_end = end_datetime.strftime("- %H:%M")
-                                    dresult = f"{formatted_day} {formatted_start} {formatted_end}"
+                                    _LOGGER.debug(start_datetime)
+                                    end_datetime = datetime.datetime.strptime(
+                                        i["end"], "%Y/%m/%d %H:%M"
+                                    )
+                                    if start_datetime.date() == end_datetime.date():
+                                        formatted_day = findDay(
+                                            start_datetime.strftime("%d %m %Y")
+                                        )
+                                        formatted_start = start_datetime.strftime(" %H:%M")
+                                        formatted_end = end_datetime.strftime("- %H:%M")
+                                        dresult = f"{formatted_day} {formatted_start} {formatted_end}"
+                                    else:
+                                        formatted_start = findDay(
+                                            start_datetime.strftime("%d %m %Y")
+                                        )
+                                        formatted_end = findDay(
+                                            end_datetime.strftime("%d %m %Y")
+                                        )
+                                        dresult = f"{formatted_start} {formatted_end}"
+                                    _ugep = _ugep + "<br><b>" + dresult + "</b><br>"
+                                    if i["itemType"] == "5":
+                                        _ugep = (
+                                            _ugep + "<br><b>" + str(i["title"]) + "</b><br>"
+                                        )
+                                    else:
+                                        _ugep = (
+                                            _ugep
+                                            + "<br><b>"
+                                            + str(i["ownername"])
+                                            + "</b><br>"
+                                        )
+                                    _ugep = _ugep + str(i["description"]) + "<br>"
                                 else:
-                                    formatted_start = findDay(
-                                        start_datetime.strftime("%d %m %Y")
-                                    )
-                                    formatted_end = findDay(
-                                        end_datetime.strftime("%d %m %Y")
-                                    )
-                                    dresult = f"{formatted_start} {formatted_end}"
-                                _ugep = _ugep + "<br><b>" + dresult + "</b><br>"
-                                if i["itemType"] == "5":
-                                    _ugep = (
-                                        _ugep + "<br><b>" + str(i["title"]) + "</b><br>"
-                                    )
-                                else:
-                                    _ugep = (
-                                        _ugep
-                                        + "<br><b>"
-                                        + str(i["ownername"])
-                                        + "</b><br>"
-                                    )
-                                _ugep = _ugep + str(i["description"]) + "<br>"
-                            else:
-                                _LOGGER.debug("None")
+                                    _LOGGER.debug("None")
+                        except KeyError:
+                            _LOGGER.debug("None")
+        
                         if thisnext == "this":
                             self.ugep_attr[first_name] = _ugep
                         elif thisnext == "next":
