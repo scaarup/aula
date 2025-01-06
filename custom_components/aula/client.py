@@ -448,8 +448,8 @@ class Client:
                         _LOGGER.debug("MU Opgaver result: " + str(_ugep))
 
             now = datetime.datetime.now() + datetime.timedelta(weeks=1)
-            thisweek = datetime.datetime.now().strftime("%Y-W%W")
-            nextweek = now.strftime("%Y-W%W")
+            thisweek = datetime.datetime.now().strftime("%Y-W%V")
+            nextweek = now.strftime("%Y-W%V")
             mu_opgaver(thisweek, "this")
             mu_opgaver(nextweek, "next")
         # End of MU Opgaver
@@ -808,8 +808,8 @@ class Client:
                                 self.ugepnext_attr[name] = ugep
 
             now = datetime.datetime.now() + datetime.timedelta(weeks=1)
-            thisweek = datetime.datetime.now().strftime("%Y-W%W")
-            nextweek = now.strftime("%Y-W%W")
+            thisweek = datetime.datetime.now().strftime("%Y-W%V")
+            nextweek = now.strftime("%Y-W%V")
             ugeplan(thisweek, "this")
             ugeplan(nextweek, "next")
             # _LOGGER.debug("End result of ugeplan object: "+str(self.ugep_attr))
