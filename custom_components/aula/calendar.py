@@ -117,8 +117,14 @@ class CalendarData:
         return events
 
     async def async_get_events(self, hass, start_date, end_date):
-        events = self.parseCalendarData()
-        return events
+        all_events = self.parseCalendarData()
+        filtered_events = []
+        
+        for event in all_events:
+            if event.end > start_date and event.start < end_date:
+                filtered_events.append(event)
+        
+        return filtered_events
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     def update(self):
