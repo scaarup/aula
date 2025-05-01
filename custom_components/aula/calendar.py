@@ -92,6 +92,7 @@ class CalendarData:
                 summary = c['title']
                 start = datetime.strptime(c['startDateTime'],"%Y-%m-%dT%H:%M:%S%z")
                 end = datetime.strptime(c['endDateTime'],"%Y-%m-%dT%H:%M:%S%z")
+                location = c.get('primaryResource', {}).get('name')
                 vikar = 0
                 for p in c['lesson']['participants']:
                     if p['participantRole'] == 'substituteTeacher':
@@ -112,6 +113,7 @@ class CalendarData:
                     summary=str(summary) + ", " + str(teacher),
                     start = start,
                     end = end,
+                    location=location,
                 )
                 events.append(event)
         return events
