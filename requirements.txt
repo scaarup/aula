@@ -1,5 +1,5 @@
 async-retrying==0.2.2
-colorlog==6.8.2
+colorlog==6.9.0
 homeassistant==2024.11.1
 
 home-assistant-frontend==20241106.2
