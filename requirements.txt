@@ -7,7 +7,7 @@ securetar==2024.2.1
 beautifulsoup4==4.12.3
 lxml==5.3.0
 zlib-ng==0.5.1
-isal==1.7.1
+isal==1.7.2
 
 python-dateutil==2.8.2
 numpy==1.26.4
