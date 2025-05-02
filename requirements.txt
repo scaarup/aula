@@ -12,6 +12,6 @@ isal==1.7.1
 python-dateutil==2.8.2
 numpy==1.26.4
 mutagen==1.47.0
-aiohttp_fast_zlib==0.1.1
+aiohttp_fast_zlib==0.2.3
 pip>=21.3.1
 ruff==0.6.7
