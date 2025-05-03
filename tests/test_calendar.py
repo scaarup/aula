@@ -2,7 +2,6 @@ import os
 import pytest
 import json
 
-from custom_components.aula.const import DOMAIN
 from custom_components.aula.calendar import (
     parseCalendarLesson,
 )
