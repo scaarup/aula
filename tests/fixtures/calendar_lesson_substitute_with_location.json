@@ -1,0 +1,71 @@
+{
+    "creatorInstProfileId": null,
+    "creatorProfileId": null,
+    "creatorName": null,
+    "invitedGroups": [
+        {
+            "id": 6,
+            "name": "Class Name",
+            "shortName": "7",
+            "institutionCode": "8",
+            "institutionName": "School Name",
+            "mainGroup": true,
+            "uniGroupType": "Test Group Type",
+            "isDeactivated": false,
+            "allowMembersToBeShown": true
+        }
+    ],
+    "primaryResource": {
+        "id": 5,
+        "name": "Test Location"
+    },
+    "hasAttachments": false,
+    "createdDateTime": "2025-02-01T10:13:50+00:00",
+    "lesson": {
+        "lessonId": "12f98b72-ad33-4521-ac91-09d17adba4d1",
+        "lessonStatus": "substitute",
+        "participants": [
+            {
+                "teacherId": 4,
+                "teacherName": "Test Teacher",
+                "teacherInitials": "TT",
+                "participantRole": "primaryTeacher"
+            },
+            {
+                "teacherId": 3,
+                "teacherName": "Test Substitute",
+                "teacherInitials": "TS",
+                "participantRole": "substituteTeacher"
+            }
+        ],
+        "hasRelevantNote": false
+    },
+    "timeSlot": null,
+    "vacationChildrenCountByDates": null,
+    "belongsToProfiles": [
+        1
+    ],
+    "belongsToResources": [],
+    "requiresNewAnswer": false,
+    "directlyRelated": false,
+    "responseDeadline": null,
+    "responseStatus": null,
+    "id": 2,
+    "title": "Test Subject",
+    "allDay": false,
+    "startDateTime": "2025-02-16T10:15:00+00:00",
+    "endDateTime": "2025-03-16T11:00:00+00:00",
+    "oldEndDateTime": null,
+    "oldStartDateTime": null,
+    "oldAllDay": null,
+    "responseRequired": false,
+    "private": false,
+    "type": "lesson",
+    "primaryResourceText": null,
+    "additionalResources": [],
+    "additionalResourceText": null,
+    "repeating": null,
+    "institutionCode": null,
+    "institutionName": null,
+    "addedToInstitutionCalendar": false
+}
