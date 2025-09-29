@@ -1,4 +1,4 @@
 homeassistant==2024.11.1
-beautifulsoup4==4.12.3
+beautifulsoup4==4.14.0
 lxml==5.3.0
 josepy==1.15.0
