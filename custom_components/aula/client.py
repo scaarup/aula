@@ -2,6 +2,7 @@ import logging
 import requests
 import datetime
 import pytz
+import asyncio
 from bs4 import BeautifulSoup
 import json, re
 from .const import (
@@ -12,7 +13,9 @@ from .const import (
     SYSTEMATIC_API,
     EASYIQ_API,
 )
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryNotReady, ConfigEntryAuthFailed
+from .aula_login_client.client import AulaLoginClient
+from .aula_login_client.exceptions import AulaAuthenticationError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,14 +30,70 @@ class Client:
     widgets = {}
     tokens = {}
 
-    def __init__(self, username, password, schoolschedule, ugeplan, mu_opgaver, unread_messages=0):
-        self._username = username
-        self._password = password
-        self._session = None
+    def __init__(
+        self,
+        mitid_username,
+        auth_method="APP",
+        mitid_password=None,
+        schoolschedule=True,
+        ugeplan=True,
+        mu_opgaver=True,
+        stored_tokens=None,
+        unread_messages=0,
+        mitid_identity=1,
+        hass=None,
+        config_entry=None,
+    ):
+        self._mitid_username = mitid_username
+        self._auth_method = auth_method
+        self._mitid_password = mitid_password
+        self._mitid_identity = mitid_identity
+
+        # Store Home Assistant references for token persistence
+        self._hass = hass
+        self._config_entry = config_entry
+
+        # Initialize AulaLoginClient
+        self._aula_client = AulaLoginClient(
+            mitid_username=mitid_username,
+            mitid_password=mitid_password,
+            auth_method=auth_method,
+            verbose=False,
+            debug=False,
+        )
+
+        # Set up identity selector callback
+        def identity_selector(identity_names):
+            """Select identity based on configured preference."""
+            if self._mitid_identity <= len(identity_names):
+                _LOGGER.info(
+                    f"Auto-selecting identity {self._mitid_identity}: {identity_names[self._mitid_identity-1]}"
+                )
+                return str(self._mitid_identity)
+            else:
+                _LOGGER.warning(
+                    f"Configured identity {self._mitid_identity} not available, using first identity"
+                )
+                return "1"
+
+        self._aula_client.identity_selector = identity_selector
+
+        # Feature flags
         self._schoolschedule = schoolschedule
         self._ugeplan = ugeplan
         self._mu_opgaver = mu_opgaver
+
+        # Token storage
+        self._tokens = stored_tokens or {}
+
+        # HTTP session
+        self._session = None
         self.unread_messages = unread_messages
+
+    def _get_access_token_param(self):
+        if self._tokens and "access_token" in self._tokens:
+            return "&access_token=" + self._tokens["access_token"]
+        return ""
 
     def custom_api_call(self, uri, post_data):
         csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]
@@ -42,7 +101,9 @@ class Client:
         _LOGGER.debug("custom_api_call: Making API call to " + self.apiurl + uri)
         if post_data == 0:
             response = self._session.get(
-                self.apiurl + uri, headers=headers, verify=True
+                self.apiurl + uri + self._get_access_token_param(),
+                headers=headers,
+                verify=True,
             )
         else:
             try:
@@ -54,7 +115,7 @@ class Client:
                 return error_msg
             _LOGGER.debug("custom_api_call: post_data:" + post_data)
             response = self._session.post(
-                self.apiurl + uri,
+                self.apiurl + uri + self._get_access_token_param(),
                 headers=headers,
                 json=json.loads(post_data),
                 verify=True,
@@ -67,115 +128,136 @@ class Client:
         return res
 
     def login(self):
-        _LOGGER.debug("Logging in")
-        self._session = requests.Session()
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/112.0",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Accept-Language": "da,en-US;q=0.7,en;q=0.3",
-            "DNT": "1",
-            "Upgrade-Insecure-Requests": "1",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1",
-        }
-        params = {
-            "type": "unilogin",
-        }
-        response = self._session.get(
-            "https://login.aula.dk/auth/login.php",
-            params=params,
-            headers=headers,
-            verify=True,
+        """Authenticate with Aula using MitID OAuth 2.0 flow."""
+        _LOGGER.info("Starting MitID authentication")
+
+        try:
+            # Check if we have valid stored tokens
+            if self._tokens:
+                self._aula_client.tokens = self._tokens
+                token_check = self._aula_client.check_token_expiration()
+
+                # If token looks valid, try to use it
+                if token_check.get("valid", False):
+                    _LOGGER.info("Using valid stored tokens")
+                    self._apply_token_to_session(self._tokens["access_token"])
+                    try:
+                        return self._verify_api_access()
+                    except (ConfigEntryNotReady, Exception) as e:
+                        _LOGGER.warning(
+                            f"Stored token rejected by API: {e}. Attempting refresh."
+                        )
+
+                # If we are here, token is expired or rejected. Try refresh.
+                _LOGGER.info("Attempting to refresh token")
+                if self._aula_client.renew_access_token():
+                    # Update local tokens
+                    self._tokens = self._aula_client.tokens
+                    self._apply_token_to_session(self._tokens["access_token"])
+                    _LOGGER.info("Token refreshed successfully")
+
+                    # Persist refreshed tokens back to config entry
+                    if self._hass and self._config_entry:
+                        from . import async_update_tokens
+                        try:
+                            asyncio.run_coroutine_threadsafe(
+                                async_update_tokens(self._hass, self._config_entry, self._tokens),
+                                self._hass.loop
+                            ).result(timeout=5)
+                            _LOGGER.debug("Refreshed tokens persisted to config entry")
+                        except Exception as e:
+                            _LOGGER.error(f"Failed to persist tokens: {e}")
+
+                    return self._verify_api_access()
+                else:
+                    _LOGGER.warning("Token refresh failed.")
+                    raise ConfigEntryAuthFailed("Token expired and refresh failed")
+
+            # Need fresh authentication
+            _LOGGER.info("Performing fresh MitID authentication")
+            auth_result = self._aula_client.authenticate()
+
+            if not auth_result.get("success", False):
+                error_msg = auth_result.get("error", "Unknown authentication error")
+                _LOGGER.error(f"MitID authentication failed: {error_msg}")
+                raise ConfigEntryNotReady(f"MitID authentication failed: {error_msg}")
+
+            # Store new tokens
+            self._tokens = auth_result["tokens"]
+            self._apply_token_to_session(self._tokens["access_token"])
+
+            # Verify API access
+            return self._verify_api_access()
+
+        except ConfigEntryAuthFailed:
+            raise
+        except Exception as e:
+            _LOGGER.error(f"Login failed: {str(e)}")
+            raise ConfigEntryNotReady(f"Login failed: {str(e)}")
+
+    def _apply_token_to_session(self, access_token):
+        """Apply bearer token to session headers."""
+        if not self._session:
+            self._session = requests.Session()
+
+        self._session.headers.update(
+            {
+                "Authorization": f"Bearer {access_token}",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
+            }
         )
 
-        _html = BeautifulSoup(response.text, "lxml")
-        _url = _html.form["action"]
-        headers = {
-            "Host": "broker.unilogin.dk",
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/112.0",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Accept-Language": "da,en-US;q=0.7,en;q=0.3",
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Origin": "null",
-            "DNT": "1",
-            "Upgrade-Insecure-Requests": "1",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "same-origin",
-            "Sec-Fetch-User": "?1",
-        }
-        data = {
-            "selectedIdp": "uni_idp",
-        }
-        response = self._session.post(
-            _url,
-            headers=headers,
-            data=data,
-            verify=True,
-        )
-
-        user_data = {
-            "username": self._username,
-            "password": self._password,
-            "selected-aktoer": "KONTAKT",
-        }
-        redirects = 0
-        success = False
-        url = ""
-        while success == False and redirects < 10:
-            html = BeautifulSoup(response.text, "lxml")
-            url = html.form["action"]
-
-            post_data = {}
-            for input in html.find_all("input"):
-                if input.has_attr("name") and input.has_attr("value"):
-                    post_data[input["name"]] = input["value"]
-                    for key in user_data:
-                        if input.has_attr("name") and input["name"] == key:
-                            post_data[key] = user_data[key]
-
-            response = self._session.post(url, data=post_data, verify=True)
-            if response.url == "https://www.aula.dk:443/portal/":
-                success = True
-            redirects += 1
-
+    def _verify_api_access(self):
+        """Verify API access with current token."""
         # Find the API url in case of a version change
         self.apiurl = API + API_VERSION
         apiver = int(API_VERSION)
         api_success = False
-        while api_success == False:
-            _LOGGER.debug("Trying API at " + self.apiurl)
-            ver = self._session.get(
-                self.apiurl + "?method=profiles.getProfilesByLogin", verify=True
-            )
-            if ver.status_code == 410:
-                _LOGGER.debug(
-                    "API was expected at "
-                    + self.apiurl
-                    + " but responded with HTTP 410. The integration will automatically try a newer version and everything may work fine."
-                )
-                apiver += 1
-            if ver.status_code == 403:
-                msg = "Access to Aula API was denied. Please check that you have entered the correct credentials. (Your password automatically expires on regular intervals!)"
-                _LOGGER.error(msg)
-                raise ConfigEntryNotReady(msg)
-            elif ver.status_code == 200:
-                self._profiles = ver.json()["data"]["profiles"]
-                # _LOGGER.debug("self._profiles "+str(self._profiles))
-                api_success = True
-            self.apiurl = API + str(apiver)
-        _LOGGER.debug("Found API on " + self.apiurl)
-        #
 
-        # ver = self._session.get(self.apiurl + "?method=profiles.getProfilesByLogin", verify=True)
-        # self._profiles = ver.json()["data"]["profiles"]
+        while not api_success:
+            _LOGGER.debug("Trying API at " + self.apiurl)
+            try:
+                ver = self._session.get(
+                    self.apiurl
+                    + "?method=profiles.getProfilesByLogin"
+                    + self._get_access_token_param(),
+                    verify=True,
+                )
+
+                if ver.status_code == 410:
+                    _LOGGER.debug(
+                        "API was expected at "
+                        + self.apiurl
+                        + " but responded with HTTP 410. The integration will automatically try a newer version and everything may work fine."
+                    )
+                    apiver += 1
+                elif ver.status_code == 403:
+                    msg = "Access to Aula API was denied. Token may be invalid or expired."
+                    _LOGGER.error(msg)
+                    raise ConfigEntryNotReady(msg)
+                elif ver.status_code == 200:
+                    self._profiles = ver.json()["data"]["profiles"]
+                    api_success = True
+                else:
+                    _LOGGER.error(f"Unexpected API response: {ver.status_code}")
+                    apiver += 1
+
+                self.apiurl = API + str(apiver)
+            except Exception as e:
+                _LOGGER.error(f"API verification error: {str(e)}")
+                raise
+
+        _LOGGER.debug("Found API on " + self.apiurl)
+
+        # Get profile context
         self._profilecontext = self._session.get(
-            self.apiurl + "?method=profiles.getProfileContext&portalrole=guardian",
+            self.apiurl
+            + "?method=profiles.getProfileContext&portalrole=guardian"
+            + self._get_access_token_param(),
             verify=True,
         ).json()["data"]["institutionProfile"]["relations"]
-        _LOGGER.debug("LOGIN: " + str(success))
+
+        _LOGGER.info("MitID authentication successful")
         _LOGGER.debug(
             "Config - schoolschedule: "
             + str(self._schoolschedule)
@@ -184,10 +266,14 @@ class Client:
             + ", config - MU opgaver: "
             + str(self._mu_opgaver)
         )
+        return True
 
     def get_widgets(self):
         detected_widgets = self._session.get(
-            self.apiurl + "?method=profiles.getProfileContext", verify=True
+            self.apiurl
+            + "?method=profiles.getProfileContext"
+            + self._get_access_token_param(),
+            verify=True,
         ).json()["data"]["pageConfiguration"]["widgetConfigurations"]
         for widget in detected_widgets:
             widgetid = str(widget["widget"]["widgetId"])
@@ -207,7 +293,10 @@ class Client:
 
         _LOGGER.debug("Requesting new token for widget " + widgetid)
         self._bearertoken = self._session.get(
-            self.apiurl + "?method=aulaToken.getAulaToken&widgetId=" + widgetid,
+            self.apiurl
+            + "?method=aulaToken.getAulaToken&widgetId="
+            + widgetid
+            + self._get_access_token_param(),
             verify=True,
         ).json()["data"]
 
@@ -215,13 +304,64 @@ class Client:
         self.tokens[widgetid] = (token, datetime.datetime.now(pytz.utc))
         return token
 
+    def _ensure_valid_token(self):
+        """Ensure we have a valid access token, refresh if needed."""
+        if not self._tokens:
+            _LOGGER.warning("No tokens available, performing full login")
+            self.login()
+            return True
+
+        self._aula_client.tokens = self._tokens
+        token_check = self._aula_client.check_token_expiration()
+
+        if not token_check.get("valid", False):
+            _LOGGER.info("Token expired, refreshing...")
+            try:
+                if self._aula_client.renew_access_token():
+                    refresh_result = {
+                        "success": True,
+                        "tokens": self._aula_client.tokens,
+                    }
+                    self._tokens = refresh_result["tokens"]
+                    self._apply_token_to_session(self._tokens["access_token"])
+                    _LOGGER.info("Token refreshed successfully")
+
+                    # Persist refreshed tokens back to config entry
+                    if self._hass and self._config_entry:
+                        from . import async_update_tokens
+                        try:
+                            asyncio.run_coroutine_threadsafe(
+                                async_update_tokens(self._hass, self._config_entry, self._tokens),
+                                self._hass.loop
+                            ).result(timeout=5)
+                            _LOGGER.debug("Refreshed tokens persisted to config entry")
+                        except Exception as e:
+                            _LOGGER.error(f"Failed to persist tokens: {e}")
+
+                    return True
+                else:
+                    _LOGGER.warning("Token refresh failed, re-authenticating...")
+                    self.login()
+                    return True
+            except Exception as e:
+                _LOGGER.error(f"Token refresh error: {str(e)}, re-authenticating...")
+                self.login()
+                return True
+        return True
+
     ###
 
     def update_data(self):
+        # Ensure valid token before making API calls
+        self._ensure_valid_token()
+
         is_logged_in = False
         if self._session:
             response = self._session.get(
-                self.apiurl + "?method=profiles.getProfilesByLogin", verify=True
+                self.apiurl
+                + "?method=profiles.getProfilesByLogin"
+                + self._get_access_token_param(),
+                verify=True,
             ).json()
             is_logged_in = response["status"]["message"] == "OK"
 
@@ -266,7 +406,8 @@ class Client:
             response = self._session.get(
                 self.apiurl
                 + "?method=presence.getDailyOverview&childIds[]="
-                + str(child["id"]),
+                + str(child["id"])
+                + self._get_access_token_param(),
                 verify=True,
             ).json()
             if len(response["data"]) > 0:
@@ -284,7 +425,8 @@ class Client:
         # Messages:
         mesres = self._session.get(
             self.apiurl
-            + "?method=messaging.getThreads&sortOn=date&orderDirection=desc&page=0",
+            + "?method=messaging.getThreads&sortOn=date&orderDirection=desc&page=0"
+            + self._get_access_token_param(),
             verify=True,
         )
         # _LOGGER.debug("mesres "+str(mesres.text))
@@ -304,7 +446,8 @@ class Client:
                 self.apiurl
                 + "?method=messaging.getMessagesForThread&threadId="
                 + str(threadid)
-                + "&page=0",
+                + "&page=0"
+                + self._get_access_token_param(),
                 verify=True,
             )
             # _LOGGER.debug("threadres "+str(threadres.text))
@@ -364,7 +507,9 @@ class Client:
             _LOGGER.debug("Fetching calendars...")
             # _LOGGER.debug("Calendar post-data: "+str(post_data))
             res = self._session.post(
-                self.apiurl + "?method=calendar.getEventsByProfileIdsAndResourceIds",
+                self.apiurl
+                + "?method=calendar.getEventsByProfileIdsAndResourceIds"
+                + self._get_access_token_param(),
                 data=post_data,
                 headers=headers,
                 verify=True,
@@ -382,25 +527,27 @@ class Client:
         if self._mu_opgaver is True:
             try:
                 guardian = self._session.get(
-                    self.apiurl + "?method=profiles.getProfileContext&portalrole=guardian",
+                    self.apiurl
+                    + "?method=profiles.getProfileContext&portalrole=guardian"
+                    + self._get_access_token_param(),
                     verify=True,
                 ).json()["data"]["userId"]
             except Exception as e:
-                _LOGGER.warning(f"Error retrieving MU Opgaver: Empty or ambiguous response: {e}")
+                _LOGGER.warning(
+                    f"Error retrieving MU Opgaver: Empty or ambiguous response: {e}"
+                )
                 return
             childUserIds = ",".join(self._childuserids)
 
             if len(self.widgets) == 0:
                 self.get_widgets()
-            if (
-                "0030" not in self.widgets
-            ):
+            if "0030" not in self.widgets:
                 _LOGGER.error(
                     "You have enabled Min Uddannelse Opgaver, but we cannot find any supported widgets (0030) in Aula."
                 )
 
             def mu_opgaver(week, thisnext):
-                  if "0030" in self.widgets:
+                if "0030" in self.widgets:
                     _LOGGER.debug("In the MU Opgaver flow")
                     token = self.get_token("0030")
                     get_payload = (
@@ -457,7 +604,9 @@ class Client:
         # Ugeplaner:
         if self._ugeplan is True:
             guardian = self._session.get(
-                self.apiurl + "?method=profiles.getProfileContext&portalrole=guardian",
+                self.apiurl
+                + "?method=profiles.getProfileContext&portalrole=guardian"
+                + self._get_access_token_param(),
                 verify=True,
             ).json()["data"]["userId"]
             childUserIds = ",".join(self._childuserids)
@@ -499,14 +648,16 @@ class Client:
                     # _LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
                     try:
                         for person in ugeplaner.json()["personer"]:
-                            ugeplan = person["institutioner"][0]["ugebreve"][0]["indhold"]
+                            ugeplan = person["institutioner"][0]["ugebreve"][0][
+                                "indhold"
+                            ]
                             if thisnext == "this":
                                 self.ugep_attr[person["navn"].split()[0]] = ugeplan
                             elif thisnext == "next":
                                 self.ugepnext_attr[person["navn"].split()[0]] = ugeplan
                     except:
                         _LOGGER.debug("Cannot fetch ugeplaner, so setting as empty")
-                        _LOGGER.debug("ugeplaner response "+str(ugeplaner.text))
+                        _LOGGER.debug("ugeplaner response " + str(ugeplaner.text))
                 if "0001" in self.widgets:
                     import calendar
 
@@ -583,7 +734,8 @@ class Client:
                                     "Could not parse timestamp: " + str(date_string)
                                 )
                                 return False
-                        try:        
+
+                        try:
                             for i in ugeplaner.json()["Events"]:
                                 if is_correct_format(i["start"], "%Y/%m/%d %H:%M"):
                                     _LOGGER.debug("No Event")
@@ -598,7 +750,9 @@ class Client:
                                         formatted_day = findDay(
                                             start_datetime.strftime("%d %m %Y")
                                         )
-                                        formatted_start = start_datetime.strftime(" %H:%M")
+                                        formatted_start = start_datetime.strftime(
+                                            " %H:%M"
+                                        )
                                         formatted_end = end_datetime.strftime("- %H:%M")
                                         dresult = f"{formatted_day} {formatted_start} {formatted_end}"
                                     else:
@@ -612,7 +766,10 @@ class Client:
                                     _ugep = _ugep + "<br><b>" + dresult + "</b><br>"
                                     if i["itemType"] == "5":
                                         _ugep = (
-                                            _ugep + "<br><b>" + str(i["title"]) + "</b><br>"
+                                            _ugep
+                                            + "<br><b>"
+                                            + str(i["title"])
+                                            + "</b><br>"
                                         )
                                     else:
                                         _ugep = (
@@ -626,7 +783,7 @@ class Client:
                                     _LOGGER.debug("None")
                         except KeyError:
                             _LOGGER.debug("None")
-        
+
                         if thisnext == "this":
                             self.ugep_attr[first_name] = _ugep
                         elif thisnext == "next":
@@ -647,7 +804,7 @@ class Client:
                         "Sec-Fetch-Mode": "cors",
                         "Sec-Fetch-Site": "cross-site",
                         "User-Agent": "Mozilla/5.0 (X11; CrOS x86_64 15183.51.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
-                        "zone": "Europe/Copenhagen"
+                        "zone": "Europe/Copenhagen",
                     }
 
                     children = "&children=".join(self._childuserids)
@@ -771,8 +928,11 @@ class Client:
                         data = json.loads(response.text, strict=False)
                         # _LOGGER.debug("Meebook ugeplan raw response from week "+week+": "+str(response.text))
 
-                    if 'exceptionMessage' in data:
-                        _LOGGER.warning("Ignoring error in fetching data from Meebook. Error exception message: " + data['exceptionMessage'])
+                    if "exceptionMessage" in data:
+                        _LOGGER.warning(
+                            "Ignoring error in fetching data from Meebook. Error exception message: "
+                            + data["exceptionMessage"]
+                        )
                     else:
                         for person in data:
                             _LOGGER.debug("Meebook ugeplan for " + person["name"])
@@ -783,13 +943,20 @@ class Client:
                                 if len(day["tasks"]) > 0:
                                     for task in day["tasks"]:
                                         if not task["pill"] == "Ingen fag tilknyttet":
-                                            ugep = ugep + "<b>" + task["pill"] + "</b><br>"
-                                        author = task.get('author')
+                                            ugep = (
+                                                ugep + "<b>" + task["pill"] + "</b><br>"
+                                            )
+                                        author = task.get("author")
                                         if author:
                                             ugep = ugep + author + "<br><br>"
-                                        if task["type"] == "comment" or task["type"] == "task":
+                                        if (
+                                            task["type"] == "comment"
+                                            or task["type"] == "task"
+                                        ):
                                             content = re.sub(
-                                                r"([0-9]+)(\.)", r"\1\.", task["content"]
+                                                r"([0-9]+)(\.)",
+                                                r"\1\.",
+                                                task["content"],
                                             )
                                         elif task["type"] == "assignment":
                                             content = re.sub(

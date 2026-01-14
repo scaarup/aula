@@ -12,8 +12,12 @@
     "iot_class": "cloud_polling",
     "issue_tracker": "https://github.com/scaarup/aula/issues",
     "requirements": [
-        "beautifulsoup4",
-        "lxml"
+        "beautifulsoup4==4.12.3",
+        "lxml==5.3.0",
+        "josepy==1.15.0",
+        "pycryptodome>=3.19.0",
+        "qrcode>=7.4.0",
+        "requests>=2.31.0"
     ],
     "version": "0.1.51"
 }
