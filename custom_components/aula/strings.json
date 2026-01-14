@@ -2,18 +2,46 @@
   "config": {
     "error": {
       "1": "Unknown error",
-      "2": "Unknown error"
+      "2": "Unknown error",
+      "auth_failed": "MitID authentication failed. Please try again.",
+      "api_error": "Failed to connect to Aula API"
+    },
+    "abort": {
+      "auth_failed": "Authentication failed. Please check your credentials and try again.",
+      "reauth_successful": "Re-authentication successful!"
+    },
+    "progress": {
+      "mitid_app_auth": "Waiting for MitID app approval. Please open your MitID app and approve the login request."
     },
     "step": {
       "user": {
         "data": {
-          "username": "Unilogin username",
-          "password": "Unilogin password",
-          "schoolschedule": "Add school schedules as calendar entities?",
-          "ugeplan": "Add ugeplaner as sensor attributes?"
+          "mitid_username": "MitID Username",
+          "schoolschedule": "Enable school schedule calendar",
+          "ugeplan": "Enable weekly plans (ugeplaner)",
+          "mu_opgaver": "Enable assignments from Min Uddannelse"
         },
-        "description": "Enter your Unilogin credentials...",
-        "title": "Authentication"
+        "description": "Configure your Aula integration with MitID. You will need to approve the login in your MitID app.",
+        "title": "Aula MitID Login"
+      },
+      "authenticate": {
+        "title": "Authenticating with MitID",
+        "description": "Please wait while we authenticate with MitID..."
+      },
+      "select_identity": {
+        "title": "Select Your Identity",
+        "description": "Multiple MitID identities found. Please select which one you want to use for Aula:",
+        "data": {
+          "identity": "Select Identity"
+        }
+      },
+      "complete": {
+        "title": "Authentication Complete",
+        "description": "MitID authentication successful! Setting up your Aula integration..."
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Aula",
+        "description": "Your Aula session needs to be re-authenticated. Username: {username}\n\nClick Submit to continue with MitID authentication."
       },
       "options": {
         "data": {

@@ -83,7 +83,7 @@ Shortcut:<br>
 - Search for "Aula" and follow the instructions in the config flow.
 
 ### Known issues
-- You must use the guardian unilogin, childlogin is not supported.
+- You must use the guardian MitID, childlogin is not supported.
 - The config flow does not currently support a reconfiguration. Meaning when your password expires, the integration must be deleted and added again, in order to update the password.
 
 ## Support

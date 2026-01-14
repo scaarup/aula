@@ -5,7 +5,6 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant import config_entries, core
 from homeassistant.helpers import entity_platform
-from .client import Client
 
 import voluptuous as vol
 from homeassistant.core import (
@@ -18,11 +17,14 @@ import homeassistant.helpers.config_validation as cv
 
 _LOGGER = logging.getLogger(__name__)
 
-from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
 from .const import (
     CONF_SCHOOLSCHEDULE,
     CONF_UGEPLAN,
     CONF_MU_OPGAVER,
+    CONF_MITID_USERNAME,
+    CONF_MITID_PASSWORD,
+    CONF_AUTH_METHOD,
+    CONF_MITID_IDENTITY,
     DOMAIN,
 )
 
@@ -47,18 +49,17 @@ async def async_setup_entry(
 
     if config_entry.options:
         config.update(config_entry.options)
-    # from .client import Client
-    client = Client(
-        config[CONF_USERNAME],
-        config[CONF_PASSWORD],
-        config[CONF_SCHOOLSCHEDULE],
-        config[CONF_UGEPLAN],
-        config.get(CONF_MU_OPGAVER, True),
-    )
-    hass.data[DOMAIN]["client"] = client
+
+    # Extract configuration with MitID parameters
+    mitid_username = config[CONF_MITID_USERNAME]
+    auth_method = config.get(CONF_AUTH_METHOD, "APP")
+    mitid_password = config.get(CONF_MITID_PASSWORD)
+    mitid_identity = config.get(CONF_MITID_IDENTITY, 1)
+    stored_tokens = config.get("stored_tokens")
+
+    client = hass.data[DOMAIN]["client"]
 
     async def async_update_data():
-        client = hass.data[DOMAIN]["client"]
         await hass.async_add_executor_job(client.update_data)
 
     coordinator = DataUpdateCoordinator(
@@ -73,8 +74,10 @@ async def async_setup_entry(
     await coordinator.async_request_refresh()
 
     entities = []
-    client = hass.data[DOMAIN]["client"]
-    await hass.async_add_executor_job(client.update_data)
+    # Ensure data is updated before creating entities
+    # (coordinator refresh above handles this, but we need data for entity creation loop)
+    if not client.presence:
+        await hass.async_add_executor_job(client.update_data)
 
     for i, child in enumerate(client._children):
         # _LOGGER.debug("Presence data for child "+str(child["id"])+" : "+str(client.presence[str(child["id"])]))
