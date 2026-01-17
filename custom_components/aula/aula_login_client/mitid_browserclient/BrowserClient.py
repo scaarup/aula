@@ -17,9 +17,9 @@ class BrowserClient:
         self.client_hash = client_hash
         self.authentication_session_id = authentication_session_id
 
-        url = f"https://www.mitid.dk/mitid-core-client-backend/v1/authentication-sessions/{authentication_session_id}"
-        _LOGGER.debug(f"Starting authentication session request to %s", url)
-        r = self.session.get(url)
+        r = self.session.get(
+            f"https://www.mitid.dk/mitid-core-client-backend/v1/authentication-sessions/{authentication_session_id}"
+        )
         if r.status_code != 200:
             _LOGGER.error(
                 f"Failed to get authentication session ({authentication_session_id}), status code {r.status_code}"
@@ -248,11 +248,9 @@ class BrowserClient:
                 raise Exception(f"No such combination ID ({combination_id})")
 
     def identify_as_user_and_get_available_authenticators(self, user_id):
-        url = f"https://www.mitid.dk/mitid-core-client-backend/v1/authentication-sessions/{self.authentication_session_id}"
-        _LOGGER.debug("Requesting available methods from %s", url)
         self.user_id = user_id
         r = self.session.put(
-            url,
+            f"https://www.mitid.dk/mitid-core-client-backend/v1/authentication-sessions/{self.authentication_session_id}",
             json={"identityClaim": user_id},
         )
 
