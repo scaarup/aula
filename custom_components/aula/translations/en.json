@@ -29,6 +29,9 @@
       "user": {
         "data": {
           "mitid_username": "MitID Username",
+          "mitid_use_token": "Using MitID token device",
+          "mitid_password": "MitID Password (only when using token device)",
+          "mitid_token": "MitID Token (from token device)",
           "schoolschedule": "Enable school schedule calendar",
           "ugeplan": "Enable weekly plans (ugeplaner)",
           "mu_opgaver": "Enable assignments from Min Uddannelse"
