@@ -35,6 +35,7 @@ class Client:
         mitid_username,
         auth_method="APP",
         mitid_password=None,
+        mitid_token=None,
         schoolschedule=True,
         ugeplan=True,
         mu_opgaver=True,
@@ -47,6 +48,7 @@ class Client:
         self._mitid_username = mitid_username
         self._auth_method = auth_method
         self._mitid_password = mitid_password
+        self._mitid_token = mitid_token
         self._mitid_identity = mitid_identity
 
         # Store Home Assistant references for token persistence
@@ -57,6 +59,7 @@ class Client:
         self._aula_client = AulaLoginClient(
             mitid_username=mitid_username,
             mitid_password=mitid_password,
+            mitid_token=mitid_token,
             auth_method=auth_method,
             verbose=False,
             debug=False,
@@ -159,10 +162,13 @@ class Client:
                     # Persist refreshed tokens back to config entry
                     if self._hass and self._config_entry:
                         from . import async_update_tokens
+
                         try:
                             asyncio.run_coroutine_threadsafe(
-                                async_update_tokens(self._hass, self._config_entry, self._tokens),
-                                self._hass.loop
+                                async_update_tokens(
+                                    self._hass, self._config_entry, self._tokens
+                                ),
+                                self._hass.loop,
                             ).result(timeout=5)
                             _LOGGER.debug("Refreshed tokens persisted to config entry")
                         except Exception as e:
@@ -329,10 +335,13 @@ class Client:
                     # Persist refreshed tokens back to config entry
                     if self._hass and self._config_entry:
                         from . import async_update_tokens
+
                         try:
                             asyncio.run_coroutine_threadsafe(
-                                async_update_tokens(self._hass, self._config_entry, self._tokens),
-                                self._hass.loop
+                                async_update_tokens(
+                                    self._hass, self._config_entry, self._tokens
+                                ),
+                                self._hass.loop,
                             ).result(timeout=5)
                             _LOGGER.debug("Refreshed tokens persisted to config entry")
                         except Exception as e:

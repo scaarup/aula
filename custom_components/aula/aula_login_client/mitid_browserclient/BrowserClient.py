@@ -3,6 +3,7 @@ from .CustomSRP import CustomSRP, hex_to_bytes, bytes_to_hex, pad
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class BrowserClient:
     def __init__(
         self,
@@ -31,7 +32,9 @@ class BrowserClient:
         self.service_provider_name = r["serviceProviderName"]
         self.reference_text_header = r["referenceTextHeader"]
         self.reference_text_body = r["referenceTextBody"]
-        self.status_message = f"Beginning login session for {self.service_provider_name}"
+        self.status_message = (
+            f"Beginning login session for {self.service_provider_name}"
+        )
         _LOGGER.info(f"Beginning login session for {self.service_provider_name}")
         _LOGGER.debug(f"{self.reference_text_header}")
         _LOGGER.debug(f"{self.reference_text_body}")
@@ -216,7 +219,9 @@ class BrowserClient:
             )
 
         self.status_message = "App login was accepted, finalizing authentication"
-        _LOGGER.info("App login was accepted, you can now finalize authentication and receive your authorization code")
+        _LOGGER.info(
+            "App login was accepted, you can now finalize authentication and receive your authorization code"
+        )
         self.finalization_authentication_session_id = r.json()[
             "authenticationSessionId"
         ]
@@ -387,7 +392,9 @@ class BrowserClient:
             json={"randomA": {"value": A}},
         )
         if r.status_code != 200:
-            _LOGGER.error(f"Failed to init TOTP code protocol, status code {r.status_code}")
+            _LOGGER.error(
+                f"Failed to init TOTP code protocol, status code {r.status_code}"
+            )
             raise Exception(r.content)
 
         timer_2 = time.time()
@@ -486,7 +493,9 @@ class BrowserClient:
             json={"randomA": {"value": A}},
         )
         if r.status_code != 200:
-            _LOGGER.error(f"Failed to init password protocol, status code {r.status_code}")
+            _LOGGER.error(
+                f"Failed to init password protocol, status code {r.status_code}"
+            )
             raise Exception(r.content)
 
         timer_2 = time.time()
@@ -559,7 +568,9 @@ class BrowserClient:
 
         self.finalization_authentication_session_id = r["nextSessionId"]
         self.status_message = "Password accepted, finalizing authentication"
-        _LOGGER.info("Password was accepted, you can now finalize authentication and receive your authorization code")
+        _LOGGER.info(
+            "Password was accepted, you can now finalize authentication and receive your authorization code"
+        )
 
     def authenticate_with_app(self):
         self.__select_authenticator("APP")
@@ -710,7 +721,9 @@ class BrowserClient:
             json={"m1": {"value": m1}, "flowValueProof": {"value": flow_value_proof}},
         )
         if r.status_code != 200:
-            _LOGGER.error(f"Failed to submit app response proof, status code {r.status_code}")
+            _LOGGER.error(
+                f"Failed to submit app response proof, status code {r.status_code}"
+            )
             raise Exception(r.content)
 
         timer_3 = time.time()
@@ -752,7 +765,9 @@ class BrowserClient:
 
         self.finalization_authentication_session_id = r["nextSessionId"]
         self.status_message = "App login was accepted, finalizing authentication"
-        _LOGGER.info("App login was accepted, you can now finalize authentication and receive your authorization code")
+        _LOGGER.info(
+            "App login was accepted, you can now finalize authentication and receive your authorization code"
+        )
 
     def finalize_authentication_and_get_authorization_code(self):
         if not self.finalization_authentication_session_id:
@@ -764,7 +779,9 @@ class BrowserClient:
             f"https://www.mitid.dk/mitid-core-client-backend/v1/authentication-sessions/{self.finalization_authentication_session_id}/finalization"
         )
         if r.status_code != 200:
-            _LOGGER.error(f"Failed to retrieve authorization code, status code {r.status_code}")
+            _LOGGER.error(
+                f"Failed to retrieve authorization code, status code {r.status_code}"
+            )
             raise Exception(r.content)
 
         return r.json()["authorizationCode"]

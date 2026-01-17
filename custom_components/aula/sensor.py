@@ -24,6 +24,7 @@ from .const import (
     CONF_MITID_USERNAME,
     CONF_MITID_PASSWORD,
     CONF_AUTH_METHOD,
+    AUTH_METHOD_APP,
     CONF_MITID_IDENTITY,
     DOMAIN,
 )
@@ -52,7 +53,7 @@ async def async_setup_entry(
 
     # Extract configuration with MitID parameters
     mitid_username = config[CONF_MITID_USERNAME]
-    auth_method = config.get(CONF_AUTH_METHOD, "APP")
+    auth_method = config.get(CONF_AUTH_METHOD, AUTH_METHOD_APP)
     mitid_password = config.get(CONF_MITID_PASSWORD)
     mitid_identity = config.get(CONF_MITID_IDENTITY, 1)
     stored_tokens = config.get("stored_tokens")

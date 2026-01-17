@@ -6,6 +6,7 @@ from .const import (
     STARTUP,
     CONF_MITID_USERNAME,
     CONF_MITID_PASSWORD,
+    CONF_MITID_TOKEN,
     CONF_AUTH_METHOD,
     CONF_MITID_IDENTITY,
     CONF_ACCESS_TOKEN,
@@ -34,9 +35,12 @@ async def async_setup_entry(
     mitid_username = entry.data.get(CONF_MITID_USERNAME)
     auth_method = entry.data.get(CONF_AUTH_METHOD, AUTH_METHOD_APP)
     mitid_password = entry.data.get(CONF_MITID_PASSWORD)
+    mitid_token = entry.data.get(CONF_MITID_TOKEN)
     mitid_identity = entry.data.get(CONF_MITID_IDENTITY, 1)
 
-    _LOGGER.info(f"Setting up Aula entry for {mitid_username}")
+    _LOGGER.info(
+        f"Setting up Aula entry for {mitid_username} using method {auth_method}"
+    )
     _LOGGER.info(f"Entry data keys: {list(entry.data.keys())}")
 
     # Extract stored tokens
@@ -73,6 +77,7 @@ async def async_setup_entry(
         mitid_username,
         auth_method,
         mitid_password,
+        mitid_token,
         entry.data.get(CONF_SCHOOLSCHEDULE, True),
         entry.data.get(CONF_UGEPLAN, True),
         entry.data.get(CONF_MU_OPGAVER, True),
