@@ -22,9 +22,8 @@ method, user_id, password, proxy = process_args(args)
 
 
 session = requests.Session()
-_LOGGER.error("Using proxy: %s", proxy)
-session.proxies.update({"http": f"http://{proxy}", "https": f"http://{proxy}"})
-session.verify = False
+if proxy:
+    session.proxies.update({"http": f"socks5://{proxy}", "https": f"socks5://{proxy}"})
 
 # Step 1: GET the login page
 url1 = "https://login.aula.dk/auth/login.php?type=unilogin"

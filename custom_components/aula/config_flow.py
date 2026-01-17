@@ -134,7 +134,6 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 mitid_password=self._mitid_password,
                 mitid_token=self._mitid_token,
                 auth_method=self._auth_method,
-                # proxy="http://192.168.1.101:8081",
                 verbose=True,
                 debug=True,
             )
