@@ -95,9 +95,16 @@ class Client:
             return "&access_token=" + self._tokens["access_token"]
         return ""
 
+    def _get_csrf_token(self):
+        """Get CSRF token from session cookies, or None if not available."""
+        cookies = self._session.cookies.get_dict()
+        return cookies.get("Csrfp-Token")
+
     def custom_api_call(self, uri, post_data):
-        csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]
-        headers = {"csrfp-token": csrf_token, "content-type": "application/json"}
+        csrf_token = self._get_csrf_token()
+        headers = {"content-type": "application/json"}
+        if csrf_token:
+            headers["csrfp-token"] = csrf_token
         _LOGGER.debug("custom_api_call: Making API call to " + self.apiurl + uri)
         if post_data == 0:
             response = self._session.get(
@@ -136,6 +143,15 @@ class Client:
             if self._tokens:
                 self._aula_client.tokens = self._tokens
                 token_check = self._aula_client.check_token_expiration()
+
+                # Log token status
+                expires_in = token_check.get("expires_in", 0)
+                if expires_in > 0:
+                    hours = int(expires_in // 3600)
+                    minutes = int((expires_in % 3600) // 60)
+                    _LOGGER.info(f"Token expires in {hours}h {minutes}m ({int(expires_in)}s)")
+                else:
+                    _LOGGER.info(f"Token status: {token_check.get('reason', 'unknown')}")
 
                 # If token looks valid, try to use it
                 if token_check.get("valid", False):
@@ -315,7 +331,8 @@ class Client:
         token_check = self._aula_client.check_token_expiration()
 
         if not token_check.get("valid", False):
-            _LOGGER.info("Token expired, refreshing...")
+            reason = token_check.get("reason", "expired")
+            _LOGGER.info(f"Token needs refresh: {reason}")
             try:
                 if self._aula_client.renew_access_token():
                     refresh_result = {
@@ -486,8 +503,10 @@ class Client:
         # Calendar:
         if self._schoolschedule is True:
             instProfileIds = ",".join(self._childids)
-            csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]
-            headers = {"csrfp-token": csrf_token, "content-type": "application/json"}
+            csrf_token = self._get_csrf_token()
+            headers = {"content-type": "application/json"}
+            if csrf_token:
+                headers["csrfp-token"] = csrf_token
             start = datetime.datetime.now(datetime.timezone.utc).strftime(
                 "%Y-%m-%d 00:00:00.0000%z"
             )
@@ -663,18 +682,19 @@ class Client:
 
                     _LOGGER.debug("In the EasyIQ flow")
                     token = self.get_token("0001")
-                    csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]
+                    csrf_token = self._get_csrf_token()
 
                     easyiq_headers = {
                         "x-aula-institutionfilter": str(self._institutionProfiles[0]),
                         "x-aula-userprofile": "guardian",
                         "Authorization": token,
                         "accept": "application/json",
-                        "csrfp-token": csrf_token,
                         "origin": "https://www.aula.dk",
                         "referer": "https://www.aula.dk/",
                         "authority": "api.easyiqcloud.dk",
                     }
+                    if csrf_token:
+                        easyiq_headers["csrfp-token"] = csrf_token
 
                     for child in self._childrenFirstNamesAndUserIDs.items():
                         userid = child[0]

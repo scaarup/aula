@@ -99,9 +99,12 @@ class CalendarData:
         return events
 
     async def async_get_events(self, hass, start_date, end_date):
-        all_events = self.parseCalendarData()
-        filtered_events = []
+        # Run file I/O in executor to avoid blocking the event loop
+        all_events = await hass.async_add_executor_job(self.parseCalendarData)
+        if not all_events:
+            return []
 
+        filtered_events = []
         for event in all_events:
             if event.end > start_date and event.start < end_date:
                 filtered_events.append(event)

@@ -813,10 +813,20 @@ class AulaLoginClient:
                 raise OAuthError(f"Token exchange failed: {response.status_code} - {response.text}")
 
             tokens = response.json()
+
+            # Calculate expires_at timestamp for persistence
+            if 'expires_in' in tokens:
+                tokens['expires_at'] = time.time() + tokens['expires_in']
+
             self.tokens = tokens
 
-            self.log("Token exchange successful!")
-            self.log(f"Access token expires in: {tokens.get('expires_in', 'Unknown')} seconds")
+            expires_in = tokens.get('expires_in', 0)
+            if expires_in:
+                hours = int(expires_in // 3600)
+                minutes = int((expires_in % 3600) // 60)
+                self.log(f"Token exchange successful! Token lifetime: {hours}h {minutes}m ({expires_in}s)")
+            else:
+                self.log("Token exchange successful! (no expiration info)")
 
             return tokens
 
@@ -997,8 +1007,16 @@ class AulaLoginClient:
                     self.tokens['refresh_token'] = token_response['refresh_token']
                 if 'expires_in' in token_response:
                     self.tokens['expires_in'] = token_response['expires_in']
+                    # Calculate expires_at timestamp for persistence
+                    self.tokens['expires_at'] = time.time() + token_response['expires_in']
 
-                self.log(f" Token renewed successfully! Expires in: {token_response.get('expires_in', 'unknown')} seconds")
+                expires_in = token_response.get('expires_in', 0)
+                if expires_in:
+                    hours = int(expires_in // 3600)
+                    minutes = int((expires_in % 3600) // 60)
+                    self.log(f"Token renewed successfully! New token lifetime: {hours}h {minutes}m ({expires_in}s)")
+                else:
+                    self.log("Token renewed successfully!")
                 return True
             else:
                 self.log(f" Token renewal failed: {response.status_code} - {response.text}", "ERROR")
