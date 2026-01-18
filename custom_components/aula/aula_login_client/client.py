@@ -548,9 +548,14 @@ class AulaLoginClient:
         data = {}
         for soup_input in soup.form.select("input"):
             try:
-                data[soup_input["name"]] = soup_input["value"]
+                name = soup_input["name"]
             except:
-                data[soup_input["name"]] = ""
+                continue
+
+            try:
+                data[name] = soup_input["value"]
+            except:
+                data[name] = ""
 
         # Update SessionStorage values from cookies (they might have changed)
         session_uuid = self.session.cookies.get("SessionUuid", "")
