@@ -573,9 +573,12 @@ class AulaLoginClient:
             # Follow redirect chain through broker
             action_url = broker_response.headers['Location']
             self.log(f"Broker redirect URL: {action_url}")
-            final_request = self.session.get(action_url, timeout=self.timeout)
-            self.log(f"Final request URL: {final_request.url}")
+
+            # Try following with allow_redirects=True to see the full chain
+            final_request = self.session.get(action_url, timeout=self.timeout, allow_redirects=True)
+            self.log(f"Final request URL (after redirects): {final_request.url}")
             self.log(f"Final request status: {final_request.status_code}")
+            self.log(f"Final request history: {[r.url for r in final_request.history]}")
 
             return self._process_broker_response(final_request)
 
