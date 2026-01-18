@@ -95,9 +95,16 @@ class Client:
             return "&access_token=" + self._tokens["access_token"]
         return ""
 
+    def _get_csrf_token(self):
+        """Get CSRF token from session cookies, or None if not available."""
+        cookies = self._session.cookies.get_dict()
+        return cookies.get("Csrfp-Token")
+
     def custom_api_call(self, uri, post_data):
-        csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]
-        headers = {"csrfp-token": csrf_token, "content-type": "application/json"}
+        csrf_token = self._get_csrf_token()
+        headers = {"content-type": "application/json"}
+        if csrf_token:
+            headers["csrfp-token"] = csrf_token
         _LOGGER.debug("custom_api_call: Making API call to " + self.apiurl + uri)
         if post_data == 0:
             response = self._session.get(
@@ -136,6 +143,15 @@ class Client:
             if self._tokens:
                 self._aula_client.tokens = self._tokens
                 token_check = self._aula_client.check_token_expiration()
+
+                # Log token status
+                expires_in = token_check.get("expires_in", 0)
+                if expires_in > 0:
+                    hours = int(expires_in // 3600)
+                    minutes = int((expires_in % 3600) // 60)
+                    _LOGGER.info(f"Token expires in {hours}h {minutes}m ({int(expires_in)}s)")
+                else:
+                    _LOGGER.info(f"Token status: {token_check.get('reason', 'unknown')}")
 
                 # If token looks valid, try to use it
                 if token_check.get("valid", False):
@@ -196,13 +212,14 @@ class Client:
             raise ConfigEntryNotReady(f"Login failed: {str(e)}")
 
     def _apply_token_to_session(self, access_token):
-        """Apply bearer token to session headers."""
+        """Initialize session for API calls. Token is passed as query parameter, not header."""
         if not self._session:
             self._session = requests.Session()
 
+        # Don't set Authorization header - Aula API expects token as query parameter
+        # Setting both causes 400 Bad Request errors
         self._session.headers.update(
             {
-                "Authorization": f"Bearer {access_token}",
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
             }
         )
@@ -213,8 +230,9 @@ class Client:
         self.apiurl = API + API_VERSION
         apiver = int(API_VERSION)
         api_success = False
+        max_version_attempts = 20  # Prevent infinite loop
 
-        while not api_success:
+        while not api_success and apiver < int(API_VERSION) + max_version_attempts:
             _LOGGER.debug("Trying API at " + self.apiurl)
             try:
                 ver = self._session.get(
@@ -231,18 +249,25 @@ class Client:
                         + " but responded with HTTP 410. The integration will automatically try a newer version and everything may work fine."
                     )
                     apiver += 1
+                    self.apiurl = API + str(apiver)
                 elif ver.status_code == 403:
                     msg = "Access to Aula API was denied. Token may be invalid or expired."
                     _LOGGER.error(msg)
                     raise ConfigEntryNotReady(msg)
+                elif ver.status_code == 400:
+                    # Bad request - log details and raise error (don't increment version)
+                    _LOGGER.error(f"API returned 400 Bad Request. Response: {ver.text[:500]}")
+                    raise ConfigEntryNotReady("API returned 400 Bad Request - check token format")
                 elif ver.status_code == 200:
-                    self._profiles = ver.json()["data"]["profiles"]
+                    ver_json = ver.json()
+                    ver_data = ver_json.get("data") if ver_json else None
+                    if not ver_data or "profiles" not in ver_data:
+                        raise ConfigEntryNotReady("API returned 200 but no profile data")
+                    self._profiles = ver_data["profiles"]
                     api_success = True
                 else:
                     _LOGGER.error(f"Unexpected API response: {ver.status_code}")
-                    apiver += 1
-
-                self.apiurl = API + str(apiver)
+                    raise ConfigEntryNotReady(f"Unexpected API response: {ver.status_code}")
             except Exception as e:
                 _LOGGER.error(f"API verification error: {str(e)}")
                 raise
@@ -250,12 +275,16 @@ class Client:
         _LOGGER.debug("Found API on " + self.apiurl)
 
         # Get profile context
-        self._profilecontext = self._session.get(
+        profile_context_response = self._session.get(
             self.apiurl
             + "?method=profiles.getProfileContext&portalrole=guardian"
             + self._get_access_token_param(),
             verify=True,
-        ).json()["data"]["institutionProfile"]["relations"]
+        ).json()
+        profile_context_data = profile_context_response.get("data") if profile_context_response else None
+        if not profile_context_data:
+            raise ConfigEntryNotReady("Could not get profile context - API returned no data")
+        self._profilecontext = profile_context_data.get("institutionProfile", {}).get("relations", [])
 
         _LOGGER.info("MitID authentication successful")
         _LOGGER.debug(
@@ -269,12 +298,17 @@ class Client:
         return True
 
     def get_widgets(self):
-        detected_widgets = self._session.get(
+        widgets_response = self._session.get(
             self.apiurl
             + "?method=profiles.getProfileContext"
             + self._get_access_token_param(),
             verify=True,
-        ).json()["data"]["pageConfiguration"]["widgetConfigurations"]
+        ).json()
+        widgets_data = widgets_response.get("data") if widgets_response else None
+        if not widgets_data:
+            _LOGGER.warning("Could not get widgets - API returned no data")
+            return
+        detected_widgets = widgets_data.get("pageConfiguration", {}).get("widgetConfigurations", [])
         for widget in detected_widgets:
             widgetid = str(widget["widget"]["widgetId"])
             widgetname = widget["widget"]["name"]
@@ -292,13 +326,17 @@ class Client:
             return "MockToken"
 
         _LOGGER.debug("Requesting new token for widget " + widgetid)
-        self._bearertoken = self._session.get(
+        token_response = self._session.get(
             self.apiurl
             + "?method=aulaToken.getAulaToken&widgetId="
             + widgetid
             + self._get_access_token_param(),
             verify=True,
-        ).json()["data"]
+        ).json()
+        self._bearertoken = token_response.get("data") if token_response else None
+        if not self._bearertoken:
+            _LOGGER.warning(f"Could not get token for widget {widgetid}")
+            return None
 
         token = "Bearer " + str(self._bearertoken)
         self.tokens[widgetid] = (token, datetime.datetime.now(pytz.utc))
@@ -315,7 +353,8 @@ class Client:
         token_check = self._aula_client.check_token_expiration()
 
         if not token_check.get("valid", False):
-            _LOGGER.info("Token expired, refreshing...")
+            reason = token_check.get("reason", "expired")
+            _LOGGER.info(f"Token needs refresh: {reason}")
             try:
                 if self._aula_client.renew_access_token():
                     refresh_result = {
@@ -410,9 +449,10 @@ class Client:
                 + self._get_access_token_param(),
                 verify=True,
             ).json()
-            if len(response["data"]) > 0:
+            response_data = response.get("data") if response else None
+            if response_data and len(response_data) > 0:
                 self.presence[str(child["id"])] = 1
-                self._daily_overview[str(child["id"])] = response["data"][0]
+                self._daily_overview[str(child["id"])] = response_data[0]
             else:
                 _LOGGER.debug(
                     "Unable to retrieve presence data from Aula from child with id "
@@ -433,7 +473,9 @@ class Client:
         self.unread_messages = 0
         unread = 0
         self.message = {}
-        for mes in mesres.json()["data"]["threads"]:
+        mesres_json = mesres.json()
+        threads = mesres_json.get("data", {}).get("threads") if mesres_json else None
+        for mes in threads or []:
             if not mes["read"]:
                 # self.unread_messages = 1
                 unread = 1
@@ -451,14 +493,15 @@ class Client:
                 verify=True,
             )
             # _LOGGER.debug("threadres "+str(threadres.text))
-            if threadres.json()["status"]["code"] == 403:
+            threadres_json = threadres.json()
+            if threadres_json.get("status", {}).get("code") == 403:
                 self.message["text"] = (
                     "Log ind på Aula med MitID for at læse denne besked."
                 )
                 self.message["sender"] = "Ukendt afsender"
                 self.message["subject"] = "Følsom besked"
-            else:
-                for message in threadres.json()["data"]["messages"]:
+            elif threadres_json.get("data") and threadres_json["data"].get("messages"):
+                for message in threadres_json["data"]["messages"]:
                     if message["messageType"] == "Message":
                         try:
                             self.message["text"] = message["text"]["html"]
@@ -475,9 +518,9 @@ class Client:
                         except:
                             self.message["sender"] = "Ukendt afsender"
                         try:
-                            self.message["subject"] = threadres.json()["data"][
-                                "subject"
-                            ]
+                            self.message["subject"] = threadres_json["data"].get(
+                                "subject", ""
+                            )
                         except:
                             self.message["subject"] = ""
                         self.unread_messages = 1
@@ -486,8 +529,10 @@ class Client:
         # Calendar:
         if self._schoolschedule is True:
             instProfileIds = ",".join(self._childids)
-            csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]
-            headers = {"csrfp-token": csrf_token, "content-type": "application/json"}
+            csrf_token = self._get_csrf_token()
+            headers = {"content-type": "application/json"}
+            if csrf_token:
+                headers["csrfp-token"] = csrf_token
             start = datetime.datetime.now(datetime.timezone.utc).strftime(
                 "%Y-%m-%d 00:00:00.0000%z"
             )
@@ -568,11 +613,13 @@ class Client:
                         "MU Opgaver status_code " + str(mu_opgaver.status_code)
                     )
                     _LOGGER.debug("MU Opgaver response " + str(mu_opgaver.text))
+                    mu_opgaver_json = mu_opgaver.json()
+                    opgaver_list = mu_opgaver_json.get("opgaver", []) if mu_opgaver_json else []
                     for full_name in self._childnames.items():
                         name_parts = full_name[1].split()
                         first_name = name_parts[0]
                         _ugep = ""
-                        for i in mu_opgaver.json()["opgaver"]:
+                        for i in opgaver_list:
                             _LOGGER.debug(
                                 "i kuvertnavn split " + str(i["kuvertnavn"].split()[0])
                             )
@@ -603,12 +650,17 @@ class Client:
 
         # Ugeplaner:
         if self._ugeplan is True:
-            guardian = self._session.get(
+            guardian_response = self._session.get(
                 self.apiurl
                 + "?method=profiles.getProfileContext&portalrole=guardian"
                 + self._get_access_token_param(),
                 verify=True,
-            ).json()["data"]["userId"]
+            ).json()
+            guardian_data = guardian_response.get("data") if guardian_response else None
+            if not guardian_data or "userId" not in guardian_data:
+                _LOGGER.warning("Could not get guardian userId for ugeplaner")
+                return True
+            guardian = guardian_data["userId"]
             childUserIds = ",".join(self._childuserids)
 
             if len(self.widgets) == 0:
@@ -663,18 +715,19 @@ class Client:
 
                     _LOGGER.debug("In the EasyIQ flow")
                     token = self.get_token("0001")
-                    csrf_token = self._session.cookies.get_dict()["Csrfp-Token"]
+                    csrf_token = self._get_csrf_token()
 
                     easyiq_headers = {
                         "x-aula-institutionfilter": str(self._institutionProfiles[0]),
                         "x-aula-userprofile": "guardian",
                         "Authorization": token,
                         "accept": "application/json",
-                        "csrfp-token": csrf_token,
                         "origin": "https://www.aula.dk",
                         "referer": "https://www.aula.dk/",
                         "authority": "api.easyiqcloud.dk",
                     }
+                    if csrf_token:
+                        easyiq_headers["csrfp-token"] = csrf_token
 
                     for child in self._childrenFirstNamesAndUserIDs.items():
                         userid = child[0]
@@ -820,7 +873,7 @@ class Client:
                         + "&dueNoLaterThan="
                         + dueNoLaterThan
                         + "&widgetVersion=1.10&userProfile=guardian&sessionId="
-                        + self._username
+                        + self._mitid_username
                         + "&institutions="
                         + institutions
                     )
@@ -899,7 +952,7 @@ class Client:
                         "dnt": "1",
                         "origin": "https://www.aula.dk",
                         "referer": "https://www.aula.dk/",
-                        "sessionuuid": self._username,
+                        "sessionuuid": self._mitid_username,
                         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36",
                         "x-version": "1.0",
                     }

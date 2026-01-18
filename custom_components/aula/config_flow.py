@@ -172,37 +172,10 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Schedule delayed cleanup of session data
             self.hass.async_create_task(self._delayed_cleanup(self.flow_id))
 
-            _LOGGER.info("Tokens validated, creating config entry")
+            _LOGGER.info("Tokens validated, proceeding to complete step")
 
-            # Build config entry data directly
-            data = {
-                CONF_MITID_USERNAME: self._mitid_username,
-                CONF_AUTH_METHOD: self._auth_method,
-                CONF_ACCESS_TOKEN: self._tokens["access_token"],
-                CONF_REFRESH_TOKEN: self._tokens["refresh_token"],
-                CONF_TOKEN_EXPIRES_AT: self._tokens.get("expires_at", 0),
-                **self._feature_flags,
-            }
-
-            _LOGGER.info(f"Creating config entry for {self._mitid_username}")
-            _LOGGER.info(f"Config entry data keys: {list(data.keys())}")
-            _LOGGER.info(f"Has access_token: {CONF_ACCESS_TOKEN in data}")
-
-            # Check if this is a reauth flow
-            if self._reauth_entry:
-                # Update existing entry with new tokens
-                _LOGGER.info("Updating existing entry with new tokens")
-                self.hass.config_entries.async_update_entry(
-                    self._reauth_entry, data=data
-                )
-                # Reload the entry to apply new tokens
-                await self.hass.config_entries.async_reload(self._reauth_entry.entry_id)
-                return self.async_abort(reason="reauth_successful")
-            else:
-                # Create entry directly - this properly ends the flow
-                return self.async_create_entry(
-                    title=f"Aula ({self._mitid_username})", data=data
-                )
+            # Transition to completion step (external step can only go to external_step_done)
+            return self.async_external_step_done(next_step_id="complete")
 
         if session_data.get("error"):
             return self.async_external_step_done(next_step_id="reauth_error")
@@ -212,6 +185,39 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="authenticate",
             url=f"/api/aula/auth/{self.flow_id}",
         )
+
+    async def async_step_complete(self, user_input=None):
+        """Complete the authentication flow by creating or updating the config entry."""
+        _LOGGER.info("Completing authentication flow")
+
+        # Build config entry data
+        data = {
+            CONF_MITID_USERNAME: self._mitid_username,
+            CONF_AUTH_METHOD: self._auth_method,
+            CONF_ACCESS_TOKEN: self._tokens["access_token"],
+            CONF_REFRESH_TOKEN: self._tokens["refresh_token"],
+            CONF_TOKEN_EXPIRES_AT: self._tokens.get("expires_at", 0),
+            **self._feature_flags,
+        }
+
+        _LOGGER.info(f"Config entry data keys: {list(data.keys())}")
+
+        # Check if this is a reauth/reconfigure flow
+        if self._reauth_entry:
+            # Update existing entry with new tokens
+            _LOGGER.info("Updating existing entry with new tokens")
+            self.hass.config_entries.async_update_entry(
+                self._reauth_entry, data=data
+            )
+            # Reload the entry to apply new tokens
+            await self.hass.config_entries.async_reload(self._reauth_entry.entry_id)
+            return self.async_abort(reason="reauth_successful")
+        else:
+            # Create new entry
+            _LOGGER.info(f"Creating new config entry for {self._mitid_username}")
+            return self.async_create_entry(
+                title=f"Aula ({self._mitid_username})", data=data
+            )
 
     async def _authenticate_async(self, session_data):
         """Background task for authentication."""
@@ -307,6 +313,15 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_reauth_confirm(self, user_input=None):
         """Confirm reauth and start authentication."""
         if user_input is not None:
+            # Clear any stale session data from previous auth attempts
+            if (
+                DOMAIN in self.hass.data
+                and "auth_sessions" in self.hass.data[DOMAIN]
+                and self.flow_id in self.hass.data[DOMAIN]["auth_sessions"]
+            ):
+                self.hass.data[DOMAIN]["auth_sessions"].pop(self.flow_id, None)
+                _LOGGER.debug("Cleared stale auth session for flow %s", self.flow_id)
+
             # Proceed to authentication
             return await self.async_step_authenticate()
 
