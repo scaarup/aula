@@ -19,5 +19,5 @@
         "qrcode>=7.4.0",
         "requests>=2.31.0"
     ],
-    "version": "0.1.53"
+    "version": "0.1.54"
 }
