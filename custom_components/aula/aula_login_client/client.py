@@ -615,6 +615,10 @@ class AulaLoginClient:
         # Extract form data to submit
         form = soup.find('form')
         form_data = {}
+
+        # Log the full page to understand what we're dealing with
+        self.log(f"Broker page HTML (first 3000 chars): {response.text[:3000]}")
+
         if form:
             form_action = form.get('action', '')
             self.log(f"Found form action: {form_action}")
@@ -625,6 +629,19 @@ class AulaLoginClient:
                 if name:
                     form_data[name] = value
                 self.log(f"  Form input: name={name}, type={inp.get('type')}, value={value[:50] if value else 'empty'}")
+
+            # Also look for select elements and buttons that might have values
+            selects = form.find_all('select')
+            for sel in selects:
+                self.log(f"  Select: name={sel.get('name')}")
+                options = sel.find_all('option')
+                for opt in options:
+                    self.log(f"    Option: value={opt.get('value')}, text={opt.text[:50] if opt.text else 'empty'}")
+
+            # Look for radio buttons or other input types
+            buttons = form.find_all('button')
+            for btn in buttons:
+                self.log(f"  Button: type={btn.get('type')}, name={btn.get('name')}, value={btn.get('value')}")
 
             # Use the form action URL if available (it has all the proper params)
             if form_action and form_action.startswith('http'):
