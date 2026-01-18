@@ -572,7 +572,10 @@ class AulaLoginClient:
 
             # Follow redirect chain through broker
             action_url = broker_response.headers['Location']
+            self.log(f"Broker redirect URL: {action_url}")
             final_request = self.session.get(action_url, timeout=self.timeout)
+            self.log(f"Final request URL: {final_request.url}")
+            self.log(f"Final request status: {final_request.status_code}")
 
             return self._process_broker_response(final_request)
 
@@ -606,7 +609,19 @@ class AulaLoginClient:
                     tab_id = form_query_params.get('tab_id', [''])[0]
 
         # Complete post-broker-login
+        self.log(f"Broker response URL for param extraction: {response.url}")
         self.log(f"Broker params - session_code: {session_code}, execution: {execution}, client_id: {client_id}, tab_id: {tab_id}")
+
+        # Log form details if any
+        form = soup.find('form')
+        if form:
+            self.log(f"Found form action: {form.get('action', 'N/A')}")
+            inputs = form.find_all('input')
+            for inp in inputs:
+                self.log(f"  Form input: name={inp.get('name')}, type={inp.get('type')}, value={inp.get('value', '')[:50] if inp.get('value') else 'empty'}")
+        else:
+            self.log("No form found in broker response")
+
         if not session_code or not execution:
             self.log(f"Warning: Missing broker params. Response URL: {response.url}")
             self.log(f"Response body (first 1000 chars): {response.text[:1000]}")
@@ -638,7 +653,7 @@ class AulaLoginClient:
         self.log(f"Post-broker response status: {post_broker_response.status_code}")
         self.log(f"Post-broker response headers: {dict(post_broker_response.headers)}")
         if post_broker_response.status_code != 302:
-            self.log(f"Post-broker response body (first 500 chars): {post_broker_response.text[:500]}")
+            self.log(f"Post-broker response body: {post_broker_response.text}")
 
         if 'Location' not in post_broker_response.headers:
             raise SAMLError(f"No redirect from post-broker-login (status={post_broker_response.status_code})")
