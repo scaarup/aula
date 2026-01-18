@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta
 import logging, time
-from .const import DOMAIN
+from .const import DOMAIN, CONF_SCHOOLSCHEDULE, CONF_TEACHER_FULL_NAME
 from homeassistant import config_entries, core
-from .const import CONF_SCHOOLSCHEDULE
 from homeassistant.components.calendar import (
     CalendarEntity,
     CalendarEvent,
@@ -29,18 +28,19 @@ async def async_setup_entry(
         async_add_entities([])
         return
     client = hass.data[DOMAIN]["client"]
+    use_full_name = config.get(CONF_TEACHER_FULL_NAME, False)
     calendar_devices = []
     calendar = []
     for i, child in enumerate(client._children):
         childid = child["id"]
         name = child["name"]
-        calendar_devices.append(CalendarDevice(hass, calendar, name, childid))
+        calendar_devices.append(CalendarDevice(hass, calendar, name, childid, use_full_name))
     async_add_entities(calendar_devices)
 
 
 class CalendarDevice(CalendarEntity):
-    def __init__(self, hass, calendar, name, childid):
-        self.data = CalendarData(hass, calendar, childid)
+    def __init__(self, hass, calendar, name, childid, use_full_name=False):
+        self.data = CalendarData(hass, calendar, childid, use_full_name)
         self._cal_data = {}
         self._name = "Skoleskema " + name
         self._childid = childid
@@ -71,12 +71,13 @@ class CalendarDevice(CalendarEntity):
 
 
 class CalendarData:
-    def __init__(self, hass, calendar, childid):
+    def __init__(self, hass, calendar, childid, use_full_name=False):
         self.event = None
 
         self._hass = hass
         self._calendar = calendar
         self._childid = childid
+        self._use_full_name = use_full_name
 
         self.all_events = []
         self._client = hass.data[DOMAIN]["client"]
@@ -95,7 +96,7 @@ class CalendarData:
         _LOGGER.debug("Parsing skoleskema.json...")
         for c in data["data"]:
             if c["type"] == "lesson" and c["belongsToProfiles"][0] == self._childid:
-                event = parseCalendarLesson(c)
+                event = parseCalendarLesson(c, self._use_full_name)
                 events.append(event)
         return events
 
@@ -118,7 +119,7 @@ class CalendarData:
         self.parseCalendarData(self)
 
 
-def parseCalendarLesson(lesson):
+def parseCalendarLesson(lesson, use_full_name=False):
     summary = lesson["title"]
     start = datetime.strptime(lesson["startDateTime"], "%Y-%m-%dT%H:%M:%S%z")
     end = datetime.strptime(lesson["endDateTime"], "%Y-%m-%dT%H:%M:%S%z")
@@ -131,7 +132,10 @@ def parseCalendarLesson(lesson):
             break
     if vikar == 0:
         try:
-            teacher = lesson["lesson"]["participants"][0]["teacherInitials"]
+            if use_full_name:
+                teacher = lesson["lesson"]["participants"][0]["teacherName"]
+            else:
+                teacher = lesson["lesson"]["participants"][0]["teacherInitials"]
         except:
             try:
                 _LOGGER.debug("Lesson json dump" + str(lesson["lesson"]))

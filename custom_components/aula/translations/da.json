@@ -31,7 +31,8 @@
           "mitid_username": "MitID Brugernavn",
           "schoolschedule": "Aktiver skoleskema kalender",
           "ugeplan": "Aktiver ugeplaner",
-          "mu_opgaver": "Aktiver opgaver fra Min Uddannelse"
+          "mu_opgaver": "Aktiver opgaver fra Min Uddannelse",
+          "teacher_full_name": "Vis lærerens fulde navn (i stedet for initialer)"
         },
         "description": "Konfigurer din Aula integration med MitID",
         "title": "Aula MitID Login"
@@ -59,7 +60,8 @@
         "data": {
           "schoolschedule": "Skoleskemaer som kalender entiteter",
           "ugeplan": "Ugeplaner som sensor attributter",
-          "mu_opgaver": "Opgaver fra Min Uddannelse som sensor attribut"
+          "mu_opgaver": "Opgaver fra Min Uddannelse som sensor attribut",
+          "teacher_full_name": "Vis lærerens fulde navn (i stedet for initialer)"
         },
         "description": "",
         "title": "Login"

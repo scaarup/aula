@@ -17,6 +17,7 @@ from .const import (
     CONF_SCHOOLSCHEDULE,
     CONF_UGEPLAN,
     CONF_MU_OPGAVER,
+    CONF_TEACHER_FULL_NAME,
     CONF_MITID_USERNAME,
     CONF_MITID_PASSWORD,
     CONF_AUTH_METHOD,
@@ -40,6 +41,7 @@ AUTH_SCHEMA = vol.Schema(
         vol.Optional("schoolschedule", default=True): cv.boolean,
         vol.Optional("ugeplan", default=True): cv.boolean,
         vol.Optional("mu_opgaver", default=True): cv.boolean,
+        vol.Optional("teacher_full_name", default=False): cv.boolean,
     }
 )
 
@@ -73,6 +75,7 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_SCHOOLSCHEDULE: user_input.get("schoolschedule", True),
                 CONF_UGEPLAN: user_input.get("ugeplan", True),
                 CONF_MU_OPGAVER: user_input.get("mu_opgaver", True),
+                CONF_TEACHER_FULL_NAME: user_input.get("teacher_full_name", False),
             }
 
             # Proceed to authentication
@@ -305,6 +308,7 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_SCHOOLSCHEDULE: self._reauth_entry.data.get(CONF_SCHOOLSCHEDULE, True),
             CONF_UGEPLAN: self._reauth_entry.data.get(CONF_UGEPLAN, True),
             CONF_MU_OPGAVER: self._reauth_entry.data.get(CONF_MU_OPGAVER, True),
+            CONF_TEACHER_FULL_NAME: self._reauth_entry.data.get(CONF_TEACHER_FULL_NAME, False),
         }
 
         # Start authentication process
@@ -347,6 +351,7 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_SCHOOLSCHEDULE: self._reauth_entry.data.get(CONF_SCHOOLSCHEDULE, True),
             CONF_UGEPLAN: self._reauth_entry.data.get(CONF_UGEPLAN, True),
             CONF_MU_OPGAVER: self._reauth_entry.data.get(CONF_MU_OPGAVER, True),
+            CONF_TEACHER_FULL_NAME: self._reauth_entry.data.get(CONF_TEACHER_FULL_NAME, False),
         }
 
         # Start authentication process

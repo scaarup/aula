@@ -478,6 +478,7 @@ class Client:
         for mes in threads or []:
             if not mes["read"]:
                 # self.unread_messages = 1
+#                print("unread mes "+str(mes))
                 unread = 1
                 threadid = mes["id"]
                 break
@@ -500,6 +501,7 @@ class Client:
                 )
                 self.message["sender"] = "Ukendt afsender"
                 self.message["subject"] = "Følsom besked"
+                self.unread_messages = 1
             elif threadres_json.get("data") and threadres_json["data"].get("messages"):
                 for message in threadres_json["data"]["messages"]:
                     if message["messageType"] == "Message":
