@@ -31,7 +31,8 @@
           "mitid_username": "MitID Username",
           "schoolschedule": "Enable school schedule calendar",
           "ugeplan": "Enable weekly plans (ugeplaner)",
-          "mu_opgaver": "Enable assignments from Min Uddannelse"
+          "mu_opgaver": "Enable assignments from Min Uddannelse",
+          "teacher_full_name": "Show full teacher names (instead of initials)"
         },
         "description": "Configure your Aula integration with MitID",
         "title": "Aula MitID Login"
@@ -59,7 +60,8 @@
         "data": {
           "schoolschedule": "School schedules as calendar entities",
           "ugeplan": "Ugeplaner as sensor attributes",
-          "mu_opgaver": "Assignments from Min Uddannelse as sensor attributes"
+          "mu_opgaver": "Assignments from Min Uddannelse as sensor attributes",
+          "teacher_full_name": "Show full teacher names (instead of initials)"
         },
         "description": "",
         "title": "Options"

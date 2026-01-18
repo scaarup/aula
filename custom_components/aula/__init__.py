@@ -93,6 +93,9 @@ async def async_setup_entry(
         # Ensure session is initialized with tokens by calling login which now handles validation
         await hass.async_add_executor_job(client.login)
 
+    # Fetch initial data before setting up platforms
+    await hass.async_add_executor_job(client.update_data)
+
     await hass.config_entries.async_forward_entry_setups(
         entry, ["sensor", "binary_sensor"]
     )
