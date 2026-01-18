@@ -633,6 +633,11 @@ class AulaLoginClient:
                     form_data[name] = value
                 self.log(f"  Form input: name={name}, type={inp.get('type')}, value={value[:50] if value else 'empty'}")
 
+            # Handle role selection if present (Elev vs Kontakt)
+            if 'selected-aktoer' in form_data:
+                self.log("Found role selection form (selected-aktoer), setting to 'KONTAKT'")
+                form_data['selected-aktoer'] = 'KONTAKT'
+
             # Also look for select elements and buttons that might have values
             selects = form.find_all('select')
             for sel in selects:
