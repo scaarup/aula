@@ -606,6 +606,10 @@ class AulaLoginClient:
                     tab_id = form_query_params.get('tab_id', [''])[0]
 
         # Complete post-broker-login
+        self.log(f"Broker params - session_code: {session_code}, execution: {execution}, client_id: {client_id}, tab_id: {tab_id}")
+        if not session_code or not execution:
+            self.log(f"Warning: Missing broker params. Response URL: {response.url}")
+            self.log(f"Response body (first 1000 chars): {response.text[:1000]}")
         post_broker_url = f"https://broker.unilogin.dk/auth/realms/broker/login-actions/post-broker-login?session_code={session_code}&execution={execution}&client_id={client_id}&tab_id={tab_id}"
 
         post_broker_headers = {
@@ -631,8 +635,13 @@ class AulaLoginClient:
             timeout=self.timeout
         )
 
+        self.log(f"Post-broker response status: {post_broker_response.status_code}")
+        self.log(f"Post-broker response headers: {dict(post_broker_response.headers)}")
+        if post_broker_response.status_code != 302:
+            self.log(f"Post-broker response body (first 500 chars): {post_broker_response.text[:500]}")
+
         if 'Location' not in post_broker_response.headers:
-            raise SAMLError("No redirect from post-broker-login")
+            raise SAMLError(f"No redirect from post-broker-login (status={post_broker_response.status_code})")
 
         # Follow final redirect
         after_post_broker_url = post_broker_response.headers['Location']
