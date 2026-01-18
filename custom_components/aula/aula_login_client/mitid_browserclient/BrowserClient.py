@@ -233,6 +233,8 @@ class BrowserClient:
 
     def __convert_combination_id_to_human_authenticator_name(self, combination_id):
         match combination_id:
+            case "S4":  # App + MitID chip
+                return "APP"
             case "S3":
                 return "APP"
             case "L2":
