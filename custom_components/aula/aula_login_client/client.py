@@ -612,25 +612,41 @@ class AulaLoginClient:
         self.log(f"Broker response URL for param extraction: {response.url}")
         self.log(f"Broker params - session_code: {session_code}, execution: {execution}, client_id: {client_id}, tab_id: {tab_id}")
 
-        # Log form details if any
+        # Extract form data to submit
         form = soup.find('form')
+        form_data = {}
         if form:
-            self.log(f"Found form action: {form.get('action', 'N/A')}")
+            form_action = form.get('action', '')
+            self.log(f"Found form action: {form_action}")
             inputs = form.find_all('input')
             for inp in inputs:
-                self.log(f"  Form input: name={inp.get('name')}, type={inp.get('type')}, value={inp.get('value', '')[:50] if inp.get('value') else 'empty'}")
+                name = inp.get('name')
+                value = inp.get('value', '')
+                if name:
+                    form_data[name] = value
+                self.log(f"  Form input: name={name}, type={inp.get('type')}, value={value[:50] if value else 'empty'}")
+
+            # Use the form action URL if available (it has all the proper params)
+            if form_action and form_action.startswith('http'):
+                post_broker_url = form_action
+            elif form_action:
+                post_broker_url = f"https://broker.unilogin.dk{form_action}"
+            else:
+                post_broker_url = f"https://broker.unilogin.dk/auth/realms/broker/login-actions/post-broker-login?session_code={session_code}&execution={execution}&client_id={client_id}&tab_id={tab_id}"
         else:
             self.log("No form found in broker response")
+            post_broker_url = f"https://broker.unilogin.dk/auth/realms/broker/login-actions/post-broker-login?session_code={session_code}&execution={execution}&client_id={client_id}&tab_id={tab_id}"
 
         if not session_code or not execution:
             self.log(f"Warning: Missing broker params. Response URL: {response.url}")
             self.log(f"Response body (first 1000 chars): {response.text[:1000]}")
-        post_broker_url = f"https://broker.unilogin.dk/auth/realms/broker/login-actions/post-broker-login?session_code={session_code}&execution={execution}&client_id={client_id}&tab_id={tab_id}"
+
+        self.log(f"Post-broker URL: {post_broker_url}")
+        self.log(f"Post-broker form data: {form_data}")
 
         post_broker_headers = {
             "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
             "content-type": "application/x-www-form-urlencoded",
-            "content-length": "0",
             "sec-fetch-dest": "document",
             "sec-fetch-mode": "navigate",
             "sec-fetch-site": "same-origin",
@@ -645,7 +661,7 @@ class AulaLoginClient:
         post_broker_response = self.session.post(
             post_broker_url,
             headers=post_broker_headers,
-            data={},
+            data=form_data,
             allow_redirects=False,
             timeout=self.timeout
         )
