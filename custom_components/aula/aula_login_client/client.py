@@ -218,7 +218,7 @@ class AulaLoginClient:
             oauth_response = self.session.get(
                 full_auth_url, allow_redirects=False, timeout=self.timeout
             )
-            self.log(f"OAuth authorization response: {oauth_response.status_code}")
+            self.log(f"OAuth authorization response: {oauth_response.status_code}", "DEBUG")
 
             if oauth_response.status_code in [301, 302, 303, 307, 308]:
                 # Follow the redirect to SAML
@@ -362,7 +362,7 @@ class AulaLoginClient:
                             allow_redirects=False,
                             timeout=self.timeout,
                         )
-                        self.log(f"Form submission result: {post_response.status_code}")
+                        self.log(f"Form submission result: {post_response.status_code}", "DEBUG")
 
                         if post_response.status_code in [301, 302, 303, 307, 308]:
                             if "Location" in post_response.headers:
@@ -502,8 +502,8 @@ class AulaLoginClient:
                 timeout=self.timeout,
             )
 
-            self.log(f"MitID completion response: {request.status_code}")
-            self.log(f"Final URL: {request.url}")
+            self.log(f"MitID completion response: {request.status_code}", "DEBUG")
+            self.log(f"Final URL: {request.url}", "DEBUG")
 
             soup = BeautifulSoup(request.text, features="html.parser")
 
@@ -656,9 +656,9 @@ class AulaLoginClient:
             final_request = self.session.get(
                 action_url, timeout=self.timeout, allow_redirects=True
             )
-            self.log(f"Final request URL (after redirects): {final_request.url}")
-            self.log(f"Final request status: {final_request.status_code}")
-            self.log(f"Final request history: {[r.url for r in final_request.history]}")
+            self.log(f"Final request URL (after redirects): {final_request.url}", "DEBUG")
+            self.log(f"Final request status: {final_request.status_code}", "DEBUG")
+            self.log(f"Final request history: {[r.url for r in final_request.history]}", "DEBUG")
 
             return self._process_broker_response(final_request)
 
@@ -692,9 +692,9 @@ class AulaLoginClient:
                     tab_id = form_query_params.get("tab_id", [""])[0]
 
         # Complete post-broker-login
-        self.log(f"Broker response URL for param extraction: {response.url}")
+        self.log(f"Broker response URL for param extraction: {response.url}", "DEBUG")
         self.log(
-            f"Broker params - session_code: {session_code}, execution: {execution}, client_id: {client_id}, tab_id: {tab_id}"
+            f"Broker params - session_code: {session_code}, execution: {execution}, client_id: {client_id}, tab_id: {tab_id}", "DEBUG"
         )
 
         # Extract form data to submit
@@ -702,7 +702,7 @@ class AulaLoginClient:
         form_data = {}
 
         # Log the full page to understand what we're dealing with
-        self.log(f"Broker page HTML (first 3000 chars): {response.text[:3000]}")
+        self.log(f"Broker page HTML (first 3000 chars): {response.text[:3000]}", "DEBUG")
 
         if form:
             form_action = form.get("action", "")
@@ -756,8 +756,8 @@ class AulaLoginClient:
             self.log(f"Warning: Missing broker params. Response URL: {response.url}")
             self.log(f"Response body (first 1000 chars): {response.text[:1000]}")
 
-        self.log(f"Post-broker URL: {post_broker_url}")
-        self.log(f"Post-broker form data: {form_data}")
+        self.log(f"Post-broker URL: {post_broker_url}", "DEBUG")
+        self.log(f"Post-broker form data: {form_data}", "DEBUG")
 
         post_broker_headers = {
             "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -781,10 +781,10 @@ class AulaLoginClient:
             timeout=self.timeout,
         )
 
-        self.log(f"Post-broker response status: {post_broker_response.status_code}")
-        self.log(f"Post-broker response headers: {dict(post_broker_response.headers)}")
+        self.log(f"Post-broker response status: {post_broker_response.status_code}", "DEBUG")
+        self.log(f"Post-broker response headers: {dict(post_broker_response.headers)}", "DEBUG")
         if post_broker_response.status_code != 302:
-            self.log(f"Post-broker response body: {post_broker_response.text}")
+            self.log(f"Post-broker response body: {post_broker_response.text}", "DEBUG")
 
         # Handle intermediate confirmation page (200 OK)
         if post_broker_response.status_code == 200:
@@ -825,11 +825,11 @@ class AulaLoginClient:
                         )
 
                         self.log(
-                            f"Confirmation response status: {post_broker_response.status_code}"
+                            f"Confirmation response status: {post_broker_response.status_code}", "DEBUG"
                         )
                         if post_broker_response.status_code != 302:
                             self.log(
-                                f"Confirmation response body: {post_broker_response.text}"
+                                f"Confirmation response body: {post_broker_response.text}", "DEBUG"
                             )
 
         if "Location" not in post_broker_response.headers:
@@ -844,8 +844,8 @@ class AulaLoginClient:
         # Extract final SAML response for Aula
         after_soup = BeautifulSoup(after_response.text, "html.parser")
 
-        self.log(f"Final broker response URL: {after_response.url}")
-        self.log(f"Final broker response status: {after_response.status_code}")
+        self.log(f"Final broker response URL: {after_response.url}", "DEBUG")
+        self.log(f"Final broker response status: {after_response.status_code}", "DEBUG")
 
         saml_form = after_soup.find("form")
 
@@ -919,7 +919,7 @@ class AulaLoginClient:
                 timeout=self.timeout,
             )
 
-            self.log(f"SAML response status: {aula_response.status_code}")
+            self.log(f"SAML response status: {aula_response.status_code}", "DEBUG")
 
             if "Location" not in aula_response.headers:
                 raise OAuthError("No redirect from Aula SAML endpoint")
@@ -945,7 +945,7 @@ class AulaLoginClient:
             redirect_response = self.session.get(
                 redirect_url, allow_redirects=False, timeout=self.timeout
             )
-            self.log(f"Redirect response status: {redirect_response.status_code}")
+            self.log(f"Redirect response status: {redirect_response.status_code}", "DEBUG")
 
             # Check if this is the OAuth callback we're looking for
             if (
