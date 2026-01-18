@@ -873,7 +873,7 @@ class Client:
                         + "&dueNoLaterThan="
                         + dueNoLaterThan
                         + "&widgetVersion=1.10&userProfile=guardian&sessionId="
-                        + self._username
+                        + self._mitid_username
                         + "&institutions="
                         + institutions
                     )
@@ -952,7 +952,7 @@ class Client:
                         "dnt": "1",
                         "origin": "https://www.aula.dk",
                         "referer": "https://www.aula.dk/",
-                        "sessionuuid": self._username,
+                        "sessionuuid": self._mitid_username,
                         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36",
                         "x-version": "1.0",
                     }

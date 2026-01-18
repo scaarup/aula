@@ -26,7 +26,8 @@ async def async_setup_entry(
     from .client import Client
 
     if not config[CONF_SCHOOLSCHEDULE] == True:
-        return True
+        async_add_entities([])
+        return
     client = hass.data[DOMAIN]["client"]
     calendar_devices = []
     calendar = []
