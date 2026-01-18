@@ -123,8 +123,8 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 mitid_username=self._mitid_username,
                 mitid_password=self._mitid_password,
                 auth_method=self._auth_method,
-                verbose=False,
-                debug=False,
+                verbose=True,
+                debug=True,
             )
 
             # Setup session data
