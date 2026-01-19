@@ -548,9 +548,14 @@ class AulaLoginClient:
         data = {}
         for soup_input in soup.form.select("input"):
             try:
-                data[soup_input["name"]] = soup_input["value"]
+                name = soup_input["name"]
             except:
-                data[soup_input["name"]] = ""
+                continue
+
+            try:
+                data[name] = soup_input["value"]
+            except:
+                data[name] = ""
 
         # Update SessionStorage values from cookies (they might have changed)
         session_uuid = self.session.cookies.get("SessionUuid", "")
@@ -560,11 +565,15 @@ class AulaLoginClient:
         if challenge:
             data["SessionStorageActiveChallenge"] = challenge
 
-        login_options = soup.select("div.list-link-box")
+        login_options = soup.select("a.list-link")
         identities = []
         identity_names = []
         for i, login_option in enumerate(login_options):
             identity_name = login_option.select_one("div.list-link-text").string
+            identity_detail = login_option.select_one("div.link-list-detail").string
+            if identity_detail:
+                identity_name += f" ({identity_detail})"
+            self.log(f"Identity name: {identity_name}", "DEBUG")
             identities.append(i + 1)
             identity_names.append(identity_name)
 
@@ -582,9 +591,7 @@ class AulaLoginClient:
 
         if int(identity) in identities:
             selected_login_option = login_options[int(identity) - 1]
-            selected_link = selected_login_option.a
-            selected_option = selected_link["data-loginoptions"]
-            data["ChosenOptionJson"] = selected_option
+            data["ChosenOptionJson"] = selected_login_option["data-loginoptions"]
         else:
             raise MitIDError("Identity not in list of identities")
 
