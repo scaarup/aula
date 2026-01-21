@@ -126,8 +126,13 @@ async def async_unload_entry(
     hass: core.HomeAssistant, entry: config_entries.ConfigEntry
 ) -> bool:
     """Unload a config entry."""
-    # Unload all platforms that may have been set up
-    platforms_to_unload = ["sensor", "binary_sensor", "calendar"]
+    # Only unload platforms that were actually set up
+    platforms_to_unload = ["sensor", "binary_sensor"]
+
+    # Only include calendar if schoolschedule was enabled
+    if entry.data.get(CONF_SCHOOLSCHEDULE, True):
+        platforms_to_unload.append("calendar")
+
     unload_ok = await hass.config_entries.async_unload_platforms(entry, platforms_to_unload)
 
     # Remove options_update_listener.
