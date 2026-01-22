@@ -3,6 +3,7 @@ import requests
 import datetime
 import pytz
 import asyncio
+import threading
 from bs4 import BeautifulSoup
 import json, re
 from .const import (
@@ -85,6 +86,9 @@ class Client:
 
         # Token storage
         self._tokens = stored_tokens or {}
+
+        # Token refresh lock to prevent concurrent refresh attempts
+        self._token_refresh_lock = threading.Lock()
 
         # HTTP session
         self._session = None
@@ -172,17 +176,19 @@ class Client:
                     self._apply_token_to_session(self._tokens["access_token"])
                     _LOGGER.info("Token refreshed successfully")
 
-                    # Persist refreshed tokens back to config entry
+                    # Persist refreshed tokens to runtime storage (non-blocking)
+                    # Note: entry.data is only updated during reauth flows (handled in config_flow.py)
                     if self._hass and self._config_entry:
                         from . import async_update_tokens
                         try:
+                            # Schedule as background task, don't block
                             asyncio.run_coroutine_threadsafe(
                                 async_update_tokens(self._hass, self._config_entry, self._tokens),
                                 self._hass.loop
-                            ).result(timeout=5)
-                            _LOGGER.debug("Refreshed tokens persisted to config entry")
+                            )
+                            _LOGGER.debug("Token update scheduled to runtime storage")
                         except Exception as e:
-                            _LOGGER.error(f"Failed to persist tokens: {e}")
+                            _LOGGER.warning(f"Failed to schedule token persistence: {e}")
 
                     return self._verify_api_access()
                 else:
@@ -343,18 +349,53 @@ class Client:
         return token
 
     def _ensure_valid_token(self):
-        """Ensure we have a valid access token, refresh if needed."""
+        """Ensure we have a valid access token, refresh if needed.
+
+        This method handles token refresh with proper error handling to prevent
+        coordinator update failures. Token refresh is non-blocking and uses
+        runtime storage to avoid triggering config entry reload cycles.
+
+        Returns:
+            bool: True if token is valid or refresh succeeded, False on critical failure
+        """
+        # Check if we have tokens at all
         if not self._tokens:
             _LOGGER.warning("No tokens available, performing full login")
-            self.login()
+            try:
+                self.login()
+                return True
+            except Exception as e:
+                _LOGGER.error(f"Login failed during token validation: {e}")
+                # Don't raise - let coordinator handle the failure gracefully
+                return False
+
+        # Check token expiration
+        try:
+            self._aula_client.tokens = self._tokens
+            token_check = self._aula_client.check_token_expiration()
+        except Exception as e:
+            _LOGGER.warning(f"Error checking token expiration: {e}, assuming token is valid")
+            # If we can't check expiration, assume token is valid and continue
+            # The API call will fail if token is actually invalid, and we'll handle it then
             return True
 
-        self._aula_client.tokens = self._tokens
-        token_check = self._aula_client.check_token_expiration()
+        # If token is valid, no refresh needed
+        if token_check.get("valid", False):
+            return True
 
-        if not token_check.get("valid", False):
-            reason = token_check.get("reason", "expired")
-            _LOGGER.info(f"Token needs refresh: {reason}")
+        # Token needs refresh - use lock to prevent concurrent refresh attempts
+        reason = token_check.get("reason", "expired")
+        _LOGGER.info(f"Token needs refresh: {reason}")
+
+        # Try to acquire lock, but don't block if another refresh is in progress
+        if not self._token_refresh_lock.acquire(blocking=False):
+            _LOGGER.debug("Token refresh already in progress, skipping concurrent attempt")
+            # If refresh is in progress, assume it will succeed and continue
+            # The next update cycle will verify if refresh succeeded
+            return True
+
+        try:
+            # Perform token refresh
             try:
                 if self._aula_client.renew_access_token():
                     refresh_result = {
@@ -365,28 +406,49 @@ class Client:
                     self._apply_token_to_session(self._tokens["access_token"])
                     _LOGGER.info("Token refreshed successfully")
 
-                    # Persist refreshed tokens back to config entry
+                    # Persist refreshed tokens to runtime storage (non-blocking)
+                    # This does NOT update entry.data, so no reload is triggered
                     if self._hass and self._config_entry:
                         from . import async_update_tokens
+                        # Use async_create_task instead of blocking run_coroutine_threadsafe
+                        # This prevents blocking the coordinator update
                         try:
-                            asyncio.run_coroutine_threadsafe(
+                            # Schedule the update as a background task
+                            # We're in a sync context (executor), so we need to schedule it
+                            future = asyncio.run_coroutine_threadsafe(
                                 async_update_tokens(self._hass, self._config_entry, self._tokens),
                                 self._hass.loop
-                            ).result(timeout=5)
-                            _LOGGER.debug("Refreshed tokens persisted to config entry")
+                            )
+                            # Don't wait for result - let it complete in background
+                            # This prevents blocking the coordinator update
+                            _LOGGER.debug("Token update scheduled to runtime storage (non-blocking)")
                         except Exception as e:
-                            _LOGGER.error(f"Failed to persist tokens: {e}")
+                            # Log error but don't fail - token refresh succeeded,
+                            # persistence failure is non-critical
+                            _LOGGER.warning(f"Failed to schedule token persistence: {e}")
 
                     return True
                 else:
-                    _LOGGER.warning("Token refresh failed, re-authenticating...")
+                    _LOGGER.warning("Token refresh failed, attempting re-authentication...")
+                    try:
+                        self.login()
+                        return True
+                    except Exception as e:
+                        _LOGGER.error(f"Re-authentication failed: {e}")
+                        # Don't raise - let coordinator handle gracefully
+                        return False
+            except Exception as e:
+                _LOGGER.error(f"Token refresh error: {e}, attempting re-authentication...")
+                try:
                     self.login()
                     return True
-            except Exception as e:
-                _LOGGER.error(f"Token refresh error: {str(e)}, re-authenticating...")
-                self.login()
-                return True
-        return True
+                except Exception as e2:
+                    _LOGGER.error(f"Re-authentication failed after refresh error: {e2}")
+                    # Don't raise - let coordinator handle gracefully
+                    return False
+        finally:
+            # Always release the lock
+            self._token_refresh_lock.release()
 
     ###
 
