@@ -61,6 +61,12 @@ async def async_setup_entry(
     hass_data[CONF_MITID_IDENTITY] = mitid_identity
     hass_data["stored_tokens"] = stored_tokens
 
+    # Store tokens in runtime storage (not entry.data) to avoid triggering reload cycles
+    # Tokens in entry.data are only for HA restart recovery and reauth flows
+    if stored_tokens:
+        hass_data["tokens"] = stored_tokens.copy()
+        _LOGGER.debug("Tokens stored in runtime storage for active use")
+
     # Registers update listener to update config entry when options are updated.
     unsub_options_update_listener = entry.add_update_listener(options_update_listener)
     # Store a reference to the unsubscribe function to cleanup if an entry is unloaded.
@@ -105,14 +111,26 @@ async def async_setup_entry(
 async def async_update_tokens(
     hass: core.HomeAssistant, entry: config_entries.ConfigEntry, tokens: dict
 ):
-    """Update stored tokens in config entry."""
-    new_data = {**entry.data}
-    new_data[CONF_ACCESS_TOKEN] = tokens["access_token"]
-    new_data[CONF_REFRESH_TOKEN] = tokens["refresh_token"]
-    new_data[CONF_TOKEN_EXPIRES_AT] = tokens.get("expires_at", 0)
+    """Update tokens in runtime storage only.
 
-    hass.config_entries.async_update_entry(entry, data=new_data)
-    _LOGGER.debug("Tokens updated in config entry")
+    This function updates tokens in runtime storage (hass.data) which does NOT
+    trigger config entry reload cycles. Tokens in entry.data are only updated
+    during reauth flows (user-initiated), which is handled in config_flow.py.
+
+    Args:
+        hass: Home Assistant instance
+        entry: Config entry
+        tokens: Dictionary containing refreshed tokens
+    """
+    # Update runtime storage only - this does NOT trigger reload cycles
+    if entry.entry_id in hass.data.get(DOMAIN, {}):
+        hass.data[DOMAIN][entry.entry_id]["tokens"] = tokens.copy()
+        _LOGGER.debug("Tokens updated in runtime storage (no reload triggered)")
+    else:
+        _LOGGER.warning(
+            f"Runtime storage not available for entry {entry.entry_id}, "
+            "cannot update tokens in runtime storage"
+        )
 
 
 async def options_update_listener(
