@@ -1051,7 +1051,9 @@ class Client:
                             + data["exceptionMessage"]
                         )
                     else:
-                        for person in data:
+                        # Handle both list and dict responses from the API
+                        persons = data.values() if isinstance(data, dict) else data
+                        for person in persons:
                             _LOGGER.debug("Meebook ugeplan for " + person["name"])
                             ugep = ""
                             ugeplan = person["weekPlan"]
