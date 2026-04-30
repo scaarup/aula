@@ -148,7 +148,18 @@ def _render_skoleportal_ugeplan(week, events, thisnext):
         by_day.setdefault(day_name, []).append(ev)
 
     today_dayname = _DA_DAYS[datetime.datetime.now().weekday()]
-    for day_name, day_events in by_day.items():
+    day_order = {name: idx for idx, name in enumerate(_DA_DAYS)}
+
+    def _start_dt(ev):
+        return _parse_skoleportal_dt(
+            ev.get("StartTime") or ev.get("StartTimeISO")
+        ) or datetime.datetime.max
+
+    # Iterate days in Mon-Sun order; within each day sort events by start time
+    for day_name, day_events in sorted(
+        by_day.items(), key=lambda kv: day_order.get(kv[0], 99)
+    ):
+        day_events = sorted(day_events, key=_start_dt)
         # Auto-expand today's section in current week's plan
         open_attr = " open" if (thisnext == "this" and day_name == today_dayname) else ""
         html_out.append("<details" + open_attr + "><summary><b>" + day_name + "</b></summary>")
