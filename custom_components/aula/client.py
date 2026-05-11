@@ -737,9 +737,10 @@ class Client:
                 and "0004" not in self.widgets
                 and "0062" not in self.widgets
                 and "0001" not in self.widgets
+                and "0128" not in self.widgets
             ):
                 _LOGGER.error(
-                    "You have enabled ugeplaner, but we cannot find any supported widgets (0029,0004,0001) in Aula."
+                    "You have enabled ugeplaner, but we cannot find any supported widgets (0029,0004,0001,0128) in Aula."
                 )
             if "0029" in self.widgets and "0004" in self.widgets:
                 _LOGGER.warning(
@@ -777,138 +778,199 @@ class Client:
                     except:
                         _LOGGER.debug("Cannot fetch ugeplaner, so setting as empty")
                         _LOGGER.debug("ugeplaner response " + str(ugeplaner.text))
-                if "0001" in self.widgets:
-                    import calendar
+                easyiq_widget = next(
+                    (w for w in ("0001", "0128") if w in self.widgets), None
+                )
+                if easyiq_widget is not None:
+                    _LOGGER.debug("In the EasyIQ flow (widget %s)", easyiq_widget)
+                    token = self.get_token(easyiq_widget)
 
-                    _LOGGER.debug("In the EasyIQ flow")
-                    token = self.get_token("0001")
-                    csrf_token = self._get_csrf_token()
+                    # Monday 00:00 UTC of the requested ISO week, as JS-style
+                    # ISO timestamp (the skoleportal calendar endpoint accepts
+                    # any time on the target Monday — it derives the week
+                    # itself).
+                    iso_year, iso_week = (int(p) for p in week.split("-W"))
+                    monday = datetime.date.fromisocalendar(iso_year, iso_week, 1)
+                    week_iso = (
+                        datetime.datetime.combine(
+                            monday, datetime.time(0, 0, 0), tzinfo=pytz.utc
+                        ).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+                    )
 
-                    easyiq_headers = {
-                        "x-aula-institutionfilter": str(self._institutionProfiles[0]),
-                        "x-aula-userprofile": "guardian",
+                    skoleportal_common = {
                         "Authorization": token,
-                        "accept": "application/json",
-                        "origin": "https://www.aula.dk",
-                        "referer": "https://www.aula.dk/",
-                        "authority": "api.easyiqcloud.dk",
+                        "X-Login": guardian,
+                        "X-InstitutionFilter": ",".join(self._institutionProfiles),
+                        "X-UserProfile": "guardian",
+                        "X-ChildFilter": ",".join(self._childuserids),
+                        "X-Requested-With": "Fetch",
+                        "Accept": "application/json",
+                        "Origin": "https://skoleportal.easyiqcloud.dk",
+                        "Referer": "https://skoleportal.easyiqcloud.dk/UgeplanWidget",
+                        "User-Agent": (
+                            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                            "AppleWebKit/537.36 (KHTML, like Gecko) "
+                            "Chrome/147.0.0.0 Safari/537.36"
+                        ),
                     }
-                    if csrf_token:
-                        easyiq_headers["csrfp-token"] = csrf_token
 
-                    for child in self._childrenFirstNamesAndUserIDs.items():
-                        userid = child[0]
-                        first_name = child[1]
+                    danish_days = [
+                        "Mandag",
+                        "Tirsdag",
+                        "Onsdag",
+                        "Torsdag",
+                        "Fredag",
+                        "Lørdag",
+                        "Søndag",
+                    ]
 
-                        _LOGGER.debug("EasyIQ headers " + str(easyiq_headers))
-                        post_data = {
-                            "sessionId": guardian,
-                            "currentWeekNr": week,
-                            "userProfile": "guardian",
-                            "institutionFilter": self._institutionProfiles,
-                            "childFilter": [userid],
-                        }
-                        _LOGGER.debug("EasyIQ post data " + str(post_data))
-                        ugeplaner = requests.post(
-                            EASYIQ_API + "/weekplaninfo",
-                            json=post_data,
-                            headers=easyiq_headers,
-                            verify=True,
-                        )
-                        # _LOGGER.debug(
-                        #    "EasyIQ Opgaver status_code " + str(ugeplaner.status_code)
-                        # )
-                        _LOGGER.debug(
-                            "EasyIQ Opgaver response " + str(ugeplaner.json())
-                        )
-                        _ugep = (
-                            "<h2>"
-                            # + ugeplaner.json()["Weekplan"]["ActivityName"]
-                            + " Uge "
-                            + week.split("-W")[1]
-                            # + ugeplaner.json()["Weekplan"]["WeekNo"]
-                            + "</h2>"
-                        )
-                        # from datetime import datetime
-
-                        def findDay(date):
-                            day, month, year = (int(i) for i in date.split(" "))
-                            dayNumber = calendar.weekday(year, month, day)
-                            days = [
-                                "Mandag",
-                                "Tirsdag",
-                                "Onsdag",
-                                "Torsdag",
-                                "Fredag",
-                                "Lørdag",
-                                "Søndag",
-                            ]
-                            return days[dayNumber]
-
-                        def is_correct_format(date_string, format):
-                            try:
-                                datetime.datetime.strptime(date_string, format)
-                                return True
-                            except ValueError:
-                                _LOGGER.debug(
-                                    "Could not parse timestamp: " + str(date_string)
-                                )
-                                return False
+                    for userid, first_name in self._childrenFirstNamesAndUserIDs.items():
+                        child_headers = dict(skoleportal_common)
+                        child_headers["X-Child"] = userid
 
                         try:
-                            for i in ugeplaner.json()["Events"]:
-                                if is_correct_format(i["start"], "%Y/%m/%d %H:%M"):
-                                    _LOGGER.debug("No Event")
-                                    start_datetime = datetime.datetime.strptime(
-                                        i["start"], "%Y/%m/%d %H:%M"
-                                    )
-                                    _LOGGER.debug(start_datetime)
-                                    end_datetime = datetime.datetime.strptime(
-                                        i["end"], "%Y/%m/%d %H:%M"
-                                    )
-                                    if start_datetime.date() == end_datetime.date():
-                                        formatted_day = findDay(
-                                            start_datetime.strftime("%d %m %Y")
-                                        )
-                                        formatted_start = start_datetime.strftime(
-                                            " %H:%M"
-                                        )
-                                        formatted_end = end_datetime.strftime("- %H:%M")
-                                        dresult = f"{formatted_day} {formatted_start} {formatted_end}"
-                                    else:
-                                        formatted_start = findDay(
-                                            start_datetime.strftime("%d %m %Y")
-                                        )
-                                        formatted_end = findDay(
-                                            end_datetime.strftime("%d %m %Y")
-                                        )
-                                        dresult = f"{formatted_start} {formatted_end}"
-                                    _ugep = _ugep + "<br><b>" + dresult + "</b><br>"
-                                    if i["itemType"] == "5":
-                                        _ugep = (
-                                            _ugep
-                                            + "<br><b>"
-                                            + str(i["title"])
-                                            + "</b><br>"
-                                        )
-                                    else:
-                                        _ugep = (
-                                            _ugep
-                                            + "<br><b>"
-                                            + str(i["ownername"])
-                                            + "</b><br>"
-                                        )
-                                    _ugep = _ugep + str(i["description"]) + "<br>"
-                                else:
-                                    _LOGGER.debug("None")
-                        except KeyError:
-                            _LOGGER.debug("None")
+                            auth_resp = requests.post(
+                                "https://skoleportal.easyiqcloud.dk/Aula/AuthenticateAulaUser",
+                                headers={**child_headers, "Content-Length": "0"},
+                                data=b"",
+                                timeout=15,
+                            )
+                        except requests.RequestException as exc:
+                            _LOGGER.warning(
+                                "EasyIQ AuthenticateAulaUser failed for %s: %s",
+                                first_name,
+                                exc,
+                            )
+                            continue
+                        if auth_resp.status_code != 200:
+                            _LOGGER.warning(
+                                "EasyIQ AuthenticateAulaUser %s for %s: %s",
+                                auth_resp.status_code,
+                                first_name,
+                                auth_resp.text[:200],
+                            )
+                            continue
+                        try:
+                            login_id = auth_resp.json().get("loginId")
+                        except ValueError:
+                            _LOGGER.warning(
+                                "EasyIQ AuthenticateAulaUser returned non-JSON for %s: %s",
+                                first_name,
+                                auth_resp.text[:200],
+                            )
+                            continue
+                        if not login_id:
+                            _LOGGER.warning(
+                                "EasyIQ AuthenticateAulaUser missing loginId for %s: %s",
+                                first_name,
+                                auth_resp.text[:200],
+                            )
+                            continue
+
+                        try:
+                            events_resp = requests.get(
+                                "https://skoleportal.easyiqcloud.dk/Calendar/CalendarGetWeekplanEvents",
+                                params={
+                                    "loginId": login_id,
+                                    "date": week_iso,
+                                    "activityFilter": "-1",
+                                    "courseFilter": "-1",
+                                    "textFilter": "",
+                                    "ownWeekPlan": "false",
+                                },
+                                headers=child_headers,
+                                timeout=15,
+                            )
+                        except requests.RequestException as exc:
+                            _LOGGER.warning(
+                                "EasyIQ CalendarGetWeekplanEvents failed for %s week %s: %s",
+                                first_name,
+                                week,
+                                exc,
+                            )
+                            continue
+                        if events_resp.status_code != 200:
+                            _LOGGER.warning(
+                                "EasyIQ CalendarGetWeekplanEvents %s for %s week %s: %s",
+                                events_resp.status_code,
+                                first_name,
+                                week,
+                                events_resp.text[:200],
+                            )
+                            continue
+                        try:
+                            events = events_resp.json()
+                        except ValueError:
+                            _LOGGER.warning(
+                                "EasyIQ CalendarGetWeekplanEvents non-JSON for %s: %s",
+                                first_name,
+                                events_resp.text[:200],
+                            )
+                            continue
+                        if not isinstance(events, list):
+                            _LOGGER.warning(
+                                "EasyIQ CalendarGetWeekplanEvents unexpected shape for %s: %s",
+                                first_name,
+                                type(events).__name__,
+                            )
+                            events = []
+
+                        _ugep = "<h2> Uge " + week.split("-W")[1] + "</h2>"
+                        events.sort(key=lambda e: e.get("StartTime") or "")
+                        for ev in events:
+                            start_str = ev.get("StartTime")
+                            end_str = ev.get("EndTime")
+                            if not start_str or not end_str:
+                                continue
+                            try:
+                                start_dt = datetime.datetime.strptime(
+                                    start_str, "%Y/%m/%d %H:%M"
+                                )
+                                end_dt = datetime.datetime.strptime(
+                                    end_str, "%Y/%m/%d %H:%M"
+                                )
+                            except ValueError:
+                                _LOGGER.debug(
+                                    "EasyIQ event for %s: unrecognised time format %r/%r",
+                                    first_name,
+                                    start_str,
+                                    end_str,
+                                )
+                                continue
+                            if start_dt.date() == end_dt.date():
+                                dresult = (
+                                    f"{danish_days[start_dt.weekday()]} "
+                                    f"{start_dt.strftime('%H:%M')}"
+                                    f"- {end_dt.strftime('%H:%M')}"
+                                )
+                            else:
+                                dresult = (
+                                    f"{danish_days[start_dt.weekday()]} "
+                                    f"{danish_days[end_dt.weekday()]}"
+                                )
+                            _ugep += "<br><b>" + dresult + "</b><br>"
+                            subject = (
+                                ev.get("CoursesDisplay")
+                                or ev.get("Title")
+                                or ""
+                            ).strip()
+                            if subject:
+                                _ugep += "<br><b>" + str(subject) + "</b><br>"
+                            description = ev.get("Description") or ""
+                            if description:
+                                _ugep += str(description) + "<br>"
 
                         if thisnext == "this":
                             self.ugep_attr[first_name] = _ugep
                         elif thisnext == "next":
                             self.ugepnext_attr[first_name] = _ugep
-                        _LOGGER.debug("EasyIQ result: " + str(_ugep))
+                        _LOGGER.debug(
+                            "EasyIQ result for %s week %s (%d events): %s",
+                            first_name,
+                            week,
+                            len(events),
+                            _ugep[:200],
+                        )
 
                 if "0062" in self.widgets:
                     _LOGGER.debug("In the Huskelisten flow...")
