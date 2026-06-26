@@ -141,7 +141,7 @@ class Client:
             res = {"raw_response": response.text}
         return res
 
-    def login(self):
+    def login(self, force_refresh=False):
         """Authenticate with Aula using MitID OAuth 2.0 flow."""
         _LOGGER.info("Starting MitID authentication")
 
@@ -160,8 +160,8 @@ class Client:
                 else:
                     _LOGGER.info(f"Token status: {token_check.get('reason', 'unknown')}")
 
-                # If token looks valid, try to use it
-                if token_check.get("valid", False):
+                # If token looks valid and not forced to refresh, try to use it
+                if token_check.get("valid", False) and not force_refresh:
                     _LOGGER.info("Using valid stored tokens")
                     self._apply_token_to_session(self._tokens["access_token"])
                     try:
@@ -171,7 +171,7 @@ class Client:
                             f"Stored token rejected by API: {e}. Attempting refresh."
                         )
 
-                # If we are here, token is expired or rejected. Try refresh.
+                # If we are here, token is expired, rejected, or force_refresh requested.
                 _LOGGER.info("Attempting to refresh token")
                 if self._aula_client.renew_access_token():
                     # Update local tokens
@@ -962,49 +962,54 @@ class Client:
                         )
                         try:
                             data = json.loads(response.text, strict=False)
-                        except:
+                        except (json.JSONDecodeError, ValueError):
                             _LOGGER.error(
                                 "Could not parse the response from Huskelisten as json."
                             )
+                            data = None
                         # _LOGGER.debug("Huskelisten raw response: "+str(response.text))
 
-                    for person in data:
-                        name = person["userName"].split()[0]
-                        _LOGGER.debug("Huskelisten for " + name)
-                        huskel = ""
-                        reminders = person["teamReminders"]
-                        if len(reminders) > 0:
-                            for reminder in reminders:
-                                local_timezone = (
-                                    datetime.datetime.now(datetime.timezone.utc)
-                                    .astimezone()
-                                    .tzinfo
-                                )
-                                due_date = datetime.datetime.strptime(
-                                    reminder["dueDate"], "%Y-%m-%dT%H:%M:%SZ"
-                                )
-                                local_due_date = (
-                                    due_date.replace(tzinfo=datetime.timezone.utc)
-                                    .astimezone(local_timezone)
-                                    .strftime("%A %d. %B")
-                                )
-                                huskel = huskel + "<h3>" + local_due_date + "</h3>"
-                                subjectName = (
-                                    reminder["subjectName"]
-                                    if "subjectName" in reminder
-                                    else ""
-                                )
-                                huskel = huskel + "<b>" + subjectName + "</b><br>"
-                                huskel = (
-                                    huskel + "af " + reminder["createdBy"] + "<br><br>"
-                                )
-                                content = re.sub(
-                                    r"([0-9]+)(\.)", r"\1\.", reminder["reminderText"]
-                                )
-                                huskel = huskel + content + "<br><br>"
-                        else:
-                            huskel = huskel + str(name) + " har ingen påmindelser."
-                        self.huskeliste[name] = huskel
+                    if not isinstance(data, list):
+                        if data is not None:
+                            _LOGGER.warning("Unexpected response type from Huskelisten: " + str(type(data)) + ". Response: " + str(data)[:200])
+                    else:
+                        for person in data:
+                            name = person["userName"].split()[0]
+                            _LOGGER.debug("Huskelisten for " + name)
+                            huskel = ""
+                            reminders = person["teamReminders"]
+                            if len(reminders) > 0:
+                                for reminder in reminders:
+                                    local_timezone = (
+                                        datetime.datetime.now(datetime.timezone.utc)
+                                        .astimezone()
+                                        .tzinfo
+                                    )
+                                    due_date = datetime.datetime.strptime(
+                                        reminder["dueDate"], "%Y-%m-%dT%H:%M:%SZ"
+                                    )
+                                    local_due_date = (
+                                        due_date.replace(tzinfo=datetime.timezone.utc)
+                                        .astimezone(local_timezone)
+                                        .strftime("%A %d. %B")
+                                    )
+                                    huskel = huskel + "<h3>" + local_due_date + "</h3>"
+                                    subjectName = (
+                                        reminder["subjectName"]
+                                        if "subjectName" in reminder
+                                        else ""
+                                    )
+                                    huskel = huskel + "<b>" + subjectName + "</b><br>"
+                                    huskel = (
+                                        huskel + "af " + reminder["createdBy"] + "<br><br>"
+                                    )
+                                    content = re.sub(
+                                        r"([0-9]+)(\.)", r"\1\.", reminder["reminderText"]
+                                    )
+                                    huskel = huskel + content + "<br><br>"
+                            else:
+                                huskel = huskel + str(name) + " har ingen påmindelser."
+                            self.huskeliste[name] = huskel
 
                 # End Huskelisten
                 if "0004" in self.widgets:
@@ -1045,14 +1050,41 @@ class Client:
                         response = requests.get(
                             MEEBOOK_API + get_payload, headers=headers, verify=True
                         )
-                        data = json.loads(response.text, strict=False)
+                        try:
+                            data = json.loads(response.text, strict=False)
+                        except (json.JSONDecodeError, ValueError):
+                            _LOGGER.warning("Could not parse the response from Meebook as json. Response: " + str(response.text[:200]))
+                            data = None
                         # _LOGGER.debug("Meebook ugeplan raw response from week "+week+": "+str(response.text))
 
-                    if "exceptionMessage" in data:
-                        _LOGGER.warning(
-                            "Ignoring error in fetching data from Meebook. Error exception message: "
-                            + data["exceptionMessage"]
-                        )
+                    if isinstance(data, dict) and "message" in data and "expired" in str(data["message"]).lower():
+                        _LOGGER.debug("Meebook token expired, resetting session and retrying...")
+                        self.tokens.pop("0004", None)
+                        self._session = None
+                        try:
+                            self.login(force_refresh=True)
+                        except Exception as login_err:
+                            _LOGGER.warning(f"Failed to refresh Aula session after Meebook token expiry: {login_err}")
+                        token = self.get_token("0004")
+                        if token:
+                            headers["authorization"] = token
+                            response = requests.get(
+                                MEEBOOK_API + get_payload, headers=headers, verify=True
+                            )
+                            try:
+                                data = json.loads(response.text, strict=False)
+                            except (json.JSONDecodeError, ValueError):
+                                _LOGGER.warning("Could not parse the response from Meebook as json after token refresh. Response: " + str(response.text[:200]))
+                                data = None
+
+                    if not isinstance(data, list):
+                        if isinstance(data, dict) and "exceptionMessage" in data:
+                            _LOGGER.warning(
+                                "Ignoring error in fetching data from Meebook. Error exception message: "
+                                + data["exceptionMessage"]
+                            )
+                        elif data is not None:
+                            _LOGGER.warning("Unexpected response type from Meebook: " + str(type(data)) + ". Response: " + str(data)[:200])
                     else:
                         for person in data:
                             _LOGGER.debug("Meebook ugeplan for " + person["name"])
