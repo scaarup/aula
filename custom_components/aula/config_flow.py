@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD
 from homeassistant.data_entry_flow import AbortFlow
+from homeassistant.helpers import network
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity_registry import (
     async_entries_for_config_entry,
@@ -185,10 +186,17 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             # Start authentication task
             self.hass.async_create_task(self._authenticate_async(session_data))
+            try:
+                base_url = network.get_url(
+                    self.hass,
+                    require_current_request=True,
+                )
+            except network.NoURLAvailableError:
+                base_url = network.get_url(self.hass)
 
             return self.async_external_step(
                 step_id="authenticate",
-                url=f"/api/aula/auth/{self.flow_id}",
+                url=f"{base_url.rstrip('/')}/api/aula/auth/{self.flow_id}",
             )
 
         if session_data.get("completed"):
