@@ -4,6 +4,7 @@ import datetime
 import pytz
 import asyncio
 import threading
+import datetime
 from bs4 import BeautifulSoup
 import json, re
 from .const import (
@@ -51,6 +52,9 @@ class Client:
         self._mitid_password = mitid_password
         self._mitid_token = mitid_token
         self._mitid_identity = mitid_identity
+
+        self._birthday_cache = {}
+        self._birthday_cache_time = {}
 
         # Store Home Assistant references for token persistence
         self._hass = hass
@@ -308,6 +312,250 @@ class Client:
             + str(self._mu_opgaver)
         )
         return True
+
+    def get_child_class_groups(self):
+        """Return each child's main class group."""
+
+        if not self._ensure_valid_token():
+            _LOGGER.warning("Unable to retrieve Aula groups: token is not valid")
+            return {}
+
+        if not self._children:
+            return {}
+
+        params = [
+            ("method", "groups.getGroupsByContext"),
+        ]
+
+        # Aula expects the institution profile ID, which is child["id"]
+        for child in self._children:
+            params.append(
+                ("childInstitutionProfileIds[]", str(child["id"]))
+            )
+        if self._tokens and "access_token" in self._tokens:
+            params.append(
+                ("access_token", self._tokens["access_token"])
+            )
+
+        try:
+            response = self._session.get(
+                self.apiurl,
+                params=params,
+                verify=True,
+            )
+
+            response.raise_for_status()
+            result = response.json()
+
+            if result.get("status", {}).get("message") != "OK":
+                _LOGGER.warning(
+                    "groups.getGroupsByContext returned unexpected status: %s",
+                    result.get("status"),
+                )
+                return {}
+
+            contexts = result.get("data", [])
+
+            child_groups = {}
+
+            for child in self._children:
+                child_id = child["id"]
+                profile_id = child["profileId"]
+                child_name = child["name"]
+
+                institution_profile = child.get(
+                    "institutionProfile", {}
+                )
+
+                class_name = institution_profile.get("metadata")
+
+                if not class_name:
+                    _LOGGER.debug(
+                        "No class metadata found for %s",
+                        child_name,
+                    )
+                    continue
+
+                # Find this child's group context
+                context = next(
+                    (
+                        item
+                        for item in contexts
+                        if item.get("profileId") == profile_id
+                    ),
+                    None,
+                )
+
+                if not context:
+                    _LOGGER.warning(
+                        "No Aula group context found for %s",
+                        child_name,
+                    )
+                    continue
+
+                # Match the actual class group, e.g.
+                # metadata "2BA" -> group named "2BA"
+                class_group = next(
+                    (
+                        group
+                        for group in context.get("groups", [])
+                        if group.get("name") == class_name
+                    ),
+                    None,
+                )
+
+                if not class_group:
+                    _LOGGER.warning(
+                        "Could not find Aula group '%s' for %s",
+                        class_name,
+                        child_name,
+                    )
+                    continue
+
+                child_groups[child_id] = {
+                    "child_name": child_name,
+                    "class_name": class_name,
+                    "group_id": class_group["id"],
+                }
+
+                _LOGGER.debug(
+                    "Aula class group for %s: %s (%s)",
+                    child_name,
+                    class_name,
+                    class_group["id"],
+                )
+
+            return child_groups
+
+        except Exception as err:
+            _LOGGER.warning(
+                "Unable to retrieve Aula child groups: %s",
+                err,
+            )
+            return {}
+
+    def get_class_birthdays(self, group_id):
+        """Return classmates with birthdays for an Aula class group."""
+
+        if not group_id:
+            return []
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        cached = self._birthday_cache.get(group_id)
+        cached_at = self._birthday_cache_time.get(group_id)
+
+        if cached is not None and cached_at is not None:
+            if now - cached_at < datetime.timedelta(hours=24):
+                _LOGGER.debug(
+                    "Using cached birthday list for Aula group %s",
+                    group_id,
+            )
+            return cached
+
+        if not self._ensure_valid_token():
+            _LOGGER.warning(
+                "Unable to retrieve Aula birthdays: token is not valid"
+            )
+            return []
+
+        birthdays = []
+        seen_profiles = set()
+
+        page = 1
+
+        while page < 50:
+            try:
+                params = {
+                    "method": "profiles.getContactlist",
+                    "groupId": str(group_id),
+                    "filter": "child",
+                    "field": "name",
+                    "page": str(page),
+                    "order": "asc",
+                }
+                
+                if self._tokens and "access_token" in self._tokens:
+                    params["access_token"] = self._tokens["access_token"]
+
+                response = self._session.get(
+                    self.apiurl,
+                    params=params,
+                    verify=True,
+                )
+
+                response.raise_for_status()
+
+                if response.status_code != 200:
+                    _LOGGER.warning(
+                        "Aula contact list failed for group %s, page %s: "
+                        "HTTP %s - %s",
+                        group_id,
+                        page,
+                        response.status_code,
+                        response.text[:1000],
+                    )
+                    break
+
+                result = response.json()
+
+                if result.get("status", {}).get("message") != "OK":
+                    _LOGGER.warning(
+                        "profiles.getContactlist returned unexpected status "
+                        "for group %s: %s",
+                        group_id,
+                        result.get("status"),
+                    )
+                    break
+
+                contacts = result.get("data", [])
+
+                if not contacts:
+                    break
+
+                for contact in contacts:
+                    if contact.get("role") != "child":
+                        continue
+
+                    birthday = contact.get("birthday")
+                    full_name = contact.get("fullName")
+                    profile_id = contact.get("profileId")
+
+                    if not birthday or not full_name:
+                        continue
+
+                    if profile_id in seen_profiles:
+                        continue
+
+                    seen_profiles.add(profile_id)
+
+                    birthdays.append(
+                        {
+                            "profile_id": profile_id,
+                            "name": full_name,
+                            "birthday": birthday,
+                        }
+                    )
+
+                page += 1
+
+            except Exception as err:
+                _LOGGER.warning(
+                    "Unable to retrieve Aula contact list for group %s: %s",
+                    group_id,
+                    err,
+                )
+                break
+
+        _LOGGER.debug(
+            "Found %s classmates with birthdays in Aula group %s",
+            len(birthdays),
+            group_id,
+        )
+
+        self._birthday_cache[group_id] = birthdays
+        self._birthday_cache_time[group_id] = now
+
+        return birthdays
 
     def get_widgets(self):
         widgets_response = self._session.get(
