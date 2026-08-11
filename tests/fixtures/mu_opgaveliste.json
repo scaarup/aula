@@ -1,0 +1,33 @@
+{
+  "opgaver": [
+    {
+      "id": "11111111-2222-3333-4444-555555555555",
+      "title": "Ugeplan 4.B",
+      "kuvertnavn": "Test Testesen",
+      "unilogin": "test1234",
+      "ugedag": "Mandag",
+      "ugenummer": "2026-W33",
+      "opgaveType": "SimpelLektie",
+      "hold": [{ "navn": "Ugeplan 4B" }],
+      "forloeb": { "navn": "Test Forløb" },
+      "afleveringsdato": null,
+      "antalElever": 0,
+      "antalFaerdige": 0,
+      "erFaerdig": false,
+      "placering": null,
+      "placeringTidspunkt": null,
+      "url": "https://api.minuddannelse.net/aula/redirect/123456/aHR0cHMlM2ElMmYlMmZ3d3cubWludWRkYW5uZWxzZS5uZXQlMmZOb2RlJTJmbWludWdlJTJmMTIzNDU2NyUzZnVnZSUzZDIwMjYtVzMz"
+    },
+    {
+      "id": "66666666-7777-8888-9999-000000000000",
+      "title": "Matematik afleveringsopgave",
+      "kuvertnavn": "Anden Testesen",
+      "unilogin": "test5678",
+      "ugedag": "Onsdag",
+      "ugenummer": "2026-W33",
+      "opgaveType": "SimpelLektie",
+      "hold": [{ "navn": "7B Matematik" }],
+      "url": "not-a-valid-deeplink"
+    }
+  ]
+}
