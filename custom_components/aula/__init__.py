@@ -107,9 +107,14 @@ async def async_setup_entry(
     # Fetch initial data before setting up platforms
     await hass.async_add_executor_job(client.update_data)
 
-    await hass.config_entries.async_forward_entry_setups(
-        entry, ["sensor", "binary_sensor"]
-    )
+    # Keep this list in sync with async_unload_entry so setup and unload are
+    # symmetric. Previously only sensor/binary_sensor were forwarded here while
+    # async_unload_entry also tried to unload "calendar", which raised and left
+    # the entry stuck in the non-recoverable FAILED_UNLOAD state on reload.
+    platforms = ["sensor", "binary_sensor"]
+    if entry.data.get(CONF_SCHOOLSCHEDULE, True):
+        platforms.append("calendar")
+    await hass.config_entries.async_forward_entry_setups(entry, platforms)
     return True
 
 
