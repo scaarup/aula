@@ -5,6 +5,8 @@ import pytz
 import asyncio
 import threading
 import datetime
+import base64
+import urllib.parse
 from bs4 import BeautifulSoup
 import json, re
 from .const import (
@@ -20,6 +22,56 @@ from .aula_login_client.client import AulaLoginClient
 from .aula_login_client.exceptions import AulaAuthenticationError
 
 _LOGGER = logging.getLogger(__name__)
+
+# Widgets that can mint a token for the Min Uddannelse "opgaveliste" endpoint,
+# in order of preference. 0030 is the dedicated "MU Opgaver" widget; 0023
+# ("MinUddannelse - SSO") is accepted by the same endpoint and is available at
+# schools that do not expose 0030 to guardians.
+MU_OPGAVER_WIDGETS = ("0030", "0023")
+
+
+def decode_mu_deeplink(url):
+    """Return the MinUddannelse page URL embedded in an opgave "url" field.
+
+    Min Uddannelse returns a redirect wrapper whose last path segment is the
+    base64 of the (url-encoded) real page URL. That redirect only works inside
+    an authenticated browser session, so linking to the decoded URL directly
+    gives a link that works from a dashboard. Returns None if it cannot be
+    decoded.
+    """
+    if not url:
+        return None
+    try:
+        encoded = url.rsplit("/", 1)[-1]
+        encoded = encoded + "=" * (-len(encoded) % 4)
+        decoded = urllib.parse.unquote(base64.b64decode(encoded).decode("utf-8"))
+        return decoded or None
+    except Exception:
+        _LOGGER.debug("Could not decode Min Uddannelse deep link: " + str(url))
+        return None
+
+
+def format_mu_opgaver(opgaver, first_name):
+    """Render one child's opgaver as the HTML used for the sensor attribute."""
+    _ugep = ""
+    for opgave in opgaver:
+        if opgave["kuvertnavn"].split()[0] != first_name:
+            continue
+        title = opgave["title"]
+        link = decode_mu_deeplink(opgave.get("url") or "")
+        if link:
+            title = '<a href="' + link + '" target="_blank">' + title + "</a>"
+        _ugep = _ugep + "<h2>" + title + "</h2>"
+        _ugep = _ugep + "<h3>" + opgave["kuvertnavn"] + "</h3>"
+        _ugep = _ugep + "Ugedag: " + opgave["ugedag"] + "<br>"
+        _ugep = _ugep + "Type: " + opgave["opgaveType"] + "<br>"
+        for hold in opgave["hold"]:
+            _ugep = _ugep + "Hold: " + hold["navn"] + "<br>"
+        try:
+            _ugep = _ugep + "Forløb: " + opgave["forloeb"]["navn"]
+        except (KeyError, TypeError):
+            _LOGGER.debug("Did not find forloeb key: " + str(opgave))
+    return _ugep
 
 
 class Client:
@@ -901,15 +953,19 @@ class Client:
 
             if len(self.widgets) == 0:
                 self.get_widgets()
-            if "0030" not in self.widgets:
+            mu_widget = next(
+                (widget for widget in MU_OPGAVER_WIDGETS if widget in self.widgets),
+                None,
+            )
+            if mu_widget is None:
                 _LOGGER.error(
-                    "You have enabled Min Uddannelse Opgaver, but we cannot find any supported widgets (0030) in Aula."
+                    "You have enabled Min Uddannelse Opgaver, but we cannot find any supported widgets (0030,0023) in Aula."
                 )
 
             def mu_opgaver(week, thisnext):
-                if "0030" in self.widgets:
-                    _LOGGER.debug("In the MU Opgaver flow")
-                    token = self.get_token("0030")
+                if mu_widget is not None:
+                    _LOGGER.debug("In the MU Opgaver flow, using widget " + mu_widget)
+                    token = self.get_token(mu_widget)
                     get_payload = (
                         "/opgaveliste?assuranceLevel=2&childFilter="
                         + childUserIds
@@ -933,23 +989,7 @@ class Client:
                     for full_name in self._childnames.items():
                         name_parts = full_name[1].split()
                         first_name = name_parts[0]
-                        _ugep = ""
-                        for i in opgaver_list:
-                            _LOGGER.debug(
-                                "i kuvertnavn split " + str(i["kuvertnavn"].split()[0])
-                            )
-                            _LOGGER.debug("first_name " + first_name)
-                            if i["kuvertnavn"].split()[0] == first_name:
-                                _ugep = _ugep + "<h2>" + i["title"] + "</h2>"
-                                _ugep = _ugep + "<h3>" + i["kuvertnavn"] + "</h3>"
-                                _ugep = _ugep + "Ugedag: " + i["ugedag"] + "<br>"
-                                _ugep = _ugep + "Type: " + i["opgaveType"] + "<br>"
-                                for h in i["hold"]:
-                                    _ugep = _ugep + "Hold: " + h["navn"] + "<br>"
-                                try:
-                                    _ugep = _ugep + "Forløb: " + i["forloeb"]["navn"]
-                                except:
-                                    _LOGGER.debug("Did not find forloeb key: " + str(i))
+                        _ugep = format_mu_opgaver(opgaver_list, first_name)
                         if thisnext == "this":
                             self.mu_opgaver_attr[first_name] = _ugep
                         elif thisnext == "next":

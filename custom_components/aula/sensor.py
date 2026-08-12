@@ -212,7 +212,7 @@ class AulaSensor(Entity):
             except:
                 attributes["mu_opgaver"] = "Min Uddannelse Opgaver not available"
             try:
-                attributes["mu_opgaver_next"] = self._client.mu_opgavernext_attr[
+                attributes["mu_opgaver_next"] = self._client.mu_opgaver_next_attr[
                     self._child["name"].split()[0]
                 ]
             except:
