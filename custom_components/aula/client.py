@@ -1109,6 +1109,19 @@ class Client:
                         _LOGGER.debug(
                             "EasyIQ Opgaver response " + str(ugeplaner.json())
                         )
+                        easyiq_payload = ugeplaner.json()
+                        if isinstance(easyiq_payload, dict) and easyiq_payload.get(
+                            "ErrorCode"
+                        ):
+                            _LOGGER.warning(
+                                "EasyIQ 0001 rejected weekplan request for %s "
+                                "(institution header %s, week %s): %s %s",
+                                first_name,
+                                self._institutionProfiles[0],
+                                week,
+                                easyiq_payload.get("ErrorCode"),
+                                easyiq_payload.get("ErrorDescription"),
+                            )
                         _ugep = (
                             "<h2>"
                             # + ugeplaner.json()["Weekplan"]["ActivityName"]
@@ -1188,9 +1201,20 @@ class Client:
                                         )
                                     _ugep = _ugep + str(i["description"]) + "<br>"
                                 else:
-                                    _LOGGER.debug("None")
-                        except KeyError:
-                            _LOGGER.debug("None")
+                                    _LOGGER.debug(
+                                        "EasyIQ event for %s skipped: unrecognised start format %r",
+                                        first_name,
+                                        i.get("start"),
+                                    )
+                        except KeyError as exc:
+                            _LOGGER.warning(
+                                "EasyIQ weekplan for %s missing expected key %s; response keys=%s",
+                                first_name,
+                                exc,
+                                list(easyiq_payload.keys())
+                                if isinstance(easyiq_payload, dict)
+                                else type(easyiq_payload).__name__,
+                            )
 
                         if thisnext == "this":
                             self.ugep_attr[first_name] = _ugep
