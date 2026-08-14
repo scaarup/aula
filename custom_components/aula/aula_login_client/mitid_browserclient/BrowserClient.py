@@ -16,6 +16,7 @@ class BrowserClient:
 
         self.client_hash = client_hash
         self.authentication_session_id = authentication_session_id
+        self.combination_ids = {}  # human authenticator name -> combinationId offered by MitID
 
         r = self.session.get(
             f"https://www.mitid.dk/mitid-core-client-backend/v1/authentication-sessions/{authentication_session_id}"
@@ -311,13 +312,43 @@ class BrowserClient:
         available_combinations = r["combinations"]
         available_authenticators = {}
         for available_combination in available_combinations:
-            available_authenticators[
-                self.__convert_combination_id_to_human_authenticator_name(
+            try:
+                human_name = self.__convert_combination_id_to_human_authenticator_name(
                     available_combination["id"]
                 )
-            ] = available_combination["combinationItems"][0]["name"]
+            except Exception:
+                _LOGGER.debug(
+                    f"Ignoring unrecognized MitID combination ID: {available_combination['id']}"
+                )
+                continue
+            available_authenticators[human_name] = available_combination[
+                "combinationItems"
+            ][0]["name"]
+
+        self.__record_combination_ids(available_combinations)
 
         return available_authenticators
+
+    def __record_combination_ids(self, combinations):
+        offered = {}
+        for combination in combinations:
+            try:
+                name = self.__convert_combination_id_to_human_authenticator_name(
+                    combination["id"]
+                )
+            except Exception:
+                continue
+            offered.setdefault(name, []).append(combination["id"])
+
+        self.combination_ids = {}
+        for name, ids in offered.items():
+            try:
+                preferred = self.__convert_human_authenticator_name_to_combination_id(
+                    name
+                )
+            except Exception:
+                preferred = None
+            self.combination_ids[name] = preferred if preferred in ids else ids[0]
 
     def __create_flow_value_proof(self):
         hashed_broker_security_context = hashlib.sha256(
@@ -336,13 +367,29 @@ class BrowserClient:
             "utf-8"
         )
 
+    def __combination_id_for(self, authenticator_type):
+        # Raises if authenticator_type isn't a name we know about at all.
+        static_id = self.__convert_human_authenticator_name_to_combination_id(
+            authenticator_type
+        )
+
+        if not self.combination_ids:
+            return static_id  # selecting without a prior identify call
+
+        combination_id = self.combination_ids.get(authenticator_type)
+        if combination_id is None:
+            offered = ", ".join(sorted(self.combination_ids)) or "none"
+            raise Exception(
+                f"{authenticator_type} authentication is not available for this MitID user "
+                f"(available: {offered})"
+            )
+        return combination_id
+
     def __select_authenticator(self, authenticator_type: str):
         if authenticator_type == self.current_authenticator_type:
             return
 
-        combination_id = self.__convert_human_authenticator_name_to_combination_id(
-            authenticator_type
-        )
+        combination_id = self.__combination_id_for(authenticator_type)
 
         r = self.session.post(
             f"https://www.mitid.dk/mitid-core-client-backend/v2/authentication-sessions/{self.authentication_session_id}/next",
