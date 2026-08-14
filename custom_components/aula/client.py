@@ -9,6 +9,8 @@ import base64
 import urllib.parse
 from bs4 import BeautifulSoup
 import json, re
+import html
+
 from .const import (
     API,
     API_VERSION,
@@ -72,6 +74,153 @@ def format_mu_opgaver(opgaver, first_name):
         except (KeyError, TypeError):
             _LOGGER.debug("Did not find forloeb key: " + str(opgave))
     return _ugep
+
+
+# EasyIQ SkolePortal (widget 0128) — separate API from widget 0001
+_SKOLEPORTAL_BASE = "https://skoleportal.easyiqcloud.dk"
+_SKOLEPORTAL_AUTH_URL = _SKOLEPORTAL_BASE + "/Aula/AuthenticateAulaUser"
+_SKOLEPORTAL_CALENDAR_URL = _SKOLEPORTAL_BASE + "/Calendar/CalendarGetWeekplanEvents"
+_SKOLEPORTAL_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
+)
+_DA_DAYS = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag", "Søndag"]
+_SKOLEPORTAL_DT_FORMATS = ("%Y-%m-%dT%H:%M:%S", "%Y/%m/%d %H:%M")
+
+
+def _parse_skoleportal_dt(dtstr):
+    """Parse a datetime string from EasyIQ SkolePortal API."""
+    if not dtstr:
+        return None
+    s = str(dtstr)
+    if s.endswith("Z"):
+        s = s[:-1]
+    if "." in s:
+        s = s.split(".")[0]
+    for fmt in _SKOLEPORTAL_DT_FORMATS:
+        try:
+            return datetime.datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _build_skoleportal_headers(token, child_userid, institutions, login):
+    """Build HTTP headers for skoleportal.easyiqcloud.dk requests."""
+    return {
+        "accept": "*/*",
+        "accept-language": "en-US,en;q=0.9,da;q=0.8",
+        "authorization": token,
+        "origin": _SKOLEPORTAL_BASE,
+        "referer": _SKOLEPORTAL_BASE + "/UgeplanWidget",
+        "user-agent": _SKOLEPORTAL_USER_AGENT,
+        "x-childfilter": str(child_userid),
+        "x-institutionfilter": institutions,
+        "x-login": login or "",
+        "x-requested-with": "XMLHttpRequest",
+        "x-userprofile": "guardian",
+    }
+
+
+def _skoleportal_authenticate(session, headers):
+    """POST AuthenticateAulaUser. Returns (loginId, childFirstName) or (None, None)."""
+    try:
+        response = session.post(_SKOLEPORTAL_AUTH_URL, headers=headers, verify=True)
+        data = response.json()
+        login_id = str(data.get("loginId", "")) if data else ""
+        child_name_full = data.get("childName", "") if data else ""
+        child_first = child_name_full.split()[0] if child_name_full else ""
+        return (login_id or None, child_first or None)
+    except Exception as e:
+        _LOGGER.warning("SkolePortal authenticate failed: %s", e)
+        return (None, None)
+
+
+def _skoleportal_fetch_weekplan(session, headers, login_id, week):
+    """GET CalendarGetWeekplanEvents for the requested ISO week (YYYY-WNN)."""
+    try:
+        year_w, weeknum_w = week.split("-W")
+        week_monday = datetime.datetime.strptime(
+            year_w + "-W" + weeknum_w + "-1", "%G-W%V-%u"
+        )
+        date_param = week_monday.strftime("%Y-%m-%dT00:00:00.000Z")
+    except Exception:
+        date_param = datetime.datetime.now().strftime("%Y-%m-%dT00:00:00.000Z")
+
+    try:
+        response = session.get(
+            _SKOLEPORTAL_CALENDAR_URL,
+            headers=headers,
+            params={"loginId": login_id, "date": date_param},
+            verify=True,
+        )
+        data = response.json()
+        return data if isinstance(data, list) else []
+    except Exception as e:
+        _LOGGER.warning("SkolePortal calendar fetch failed: %s", e)
+        return []
+
+
+def _render_skoleportal_event(ev):
+    """Render a single SkolePortal event as HTML."""
+    title = html.unescape(str(ev.get("CoursesDisplay") or "").strip())
+    hold = html.unescape(str(ev.get("ActivitiesDisplay") or "").strip())
+    chapter = html.unescape(str(ev.get("ChapterTitle") or "").strip())
+    description = html.unescape(str(ev.get("Description") or "").strip())
+    start_dt = _parse_skoleportal_dt(ev.get("StartTime") or ev.get("StartTimeISO"))
+    end_dt = _parse_skoleportal_dt(ev.get("EndTime") or ev.get("EndTimeISO"))
+
+    parts = ["<b>" + title + "</b>"]
+    if hold:
+        parts.append(" (" + hold + ")")
+    parts.append("<br>")
+    if start_dt and end_dt:
+        parts.append("Tid: " + start_dt.strftime("%H:%M") + " - " + end_dt.strftime("%H:%M") + "<br>")
+    if chapter:
+        parts.append("<i>" + chapter + "</i><br>")
+    if description:
+        parts.append(description + "<br>")
+    parts.append("<br>")
+    return "".join(parts)
+
+
+def _render_skoleportal_ugeplan(week, events, thisnext):
+    """Render SkolePortal events as HTML with collapsible <details> per day."""
+    week_num = week.split("-W")[1] if "-W" in week else week
+    html_out = ["<h2>Uge " + week_num + "</h2>"]
+
+    if not events:
+        return "".join(html_out)
+
+    # Group events by Danish day name
+    by_day = {}
+    for ev in events:
+        start_val = ev.get("StartTime") or ev.get("StartTimeISO")
+        dt = _parse_skoleportal_dt(start_val)
+        day_name = _DA_DAYS[dt.weekday()] if dt else "Ukendt dag"
+        by_day.setdefault(day_name, []).append(ev)
+
+    today_dayname = _DA_DAYS[datetime.datetime.now().weekday()]
+    day_order = {name: idx for idx, name in enumerate(_DA_DAYS)}
+
+    def _start_dt(ev):
+        return _parse_skoleportal_dt(
+            ev.get("StartTime") or ev.get("StartTimeISO")
+        ) or datetime.datetime.max
+
+    # Iterate days in Mon-Sun order; within each day sort events by start time
+    for day_name, day_events in sorted(
+        by_day.items(), key=lambda kv: day_order.get(kv[0], 99)
+    ):
+        day_events = sorted(day_events, key=_start_dt)
+        # Auto-expand today's section in current week's plan
+        open_attr = " open" if (thisnext == "this" and day_name == today_dayname) else ""
+        html_out.append("<details" + open_attr + "><summary><b>" + day_name + "</b></summary>")
+        for ev in day_events:
+            html_out.append(_render_skoleportal_event(ev))
+        html_out.append("</details>")
+
+    return "".join(html_out)
 
 
 class Client:
@@ -1025,9 +1174,10 @@ class Client:
                 and "0004" not in self.widgets
                 and "0062" not in self.widgets
                 and "0001" not in self.widgets
+                and "0128" not in self.widgets
             ):
                 _LOGGER.error(
-                    "You have enabled ugeplaner, but we cannot find any supported widgets (0029,0004,0001) in Aula."
+                    "You have enabled ugeplaner, but we cannot find any supported widgets (0029,0004,0001,0128) in Aula."
                 )
             if "0029" in self.widgets and "0004" in self.widgets:
                 _LOGGER.warning(
@@ -1197,6 +1347,49 @@ class Client:
                         elif thisnext == "next":
                             self.ugepnext_attr[first_name] = _ugep
                         _LOGGER.debug("EasyIQ result: " + str(_ugep))
+
+                if "0128" in self.widgets:
+                    # EasyIQ SkolePortal — same product family as widget 0001 (EasyIQ)
+                    # but a different SaaS offering: skoleportal.easyiqcloud.dk vs api.easyiqcloud.dk.
+                    # Schools licensed for SkolePortal expose widget 0128 instead of 0001.
+                    _LOGGER.debug("In the EasyIQ SkolePortal flow (widget 0128)")
+                    token = self.get_token("0128")
+                    if not token:
+                        _LOGGER.warning("Could not get token for widget 0128")
+                    else:
+                        institutions = ",".join(self._institutionProfiles)
+                        # Iterate per child so each child's own ugeplan is fetched
+                        for child_userid, child_first_name in self._childrenFirstNamesAndUserIDs.items():
+                            sp_headers = _build_skoleportal_headers(
+                                token=token,
+                                child_userid=child_userid,
+                                institutions=institutions,
+                                login=self._mitid_username,
+                            )
+                            login_id, api_child_first = _skoleportal_authenticate(
+                                self._session, sp_headers
+                            )
+                            if not login_id:
+                                _LOGGER.warning(
+                                    "SkolePortal authentication failed for child %s",
+                                    child_userid,
+                                )
+                                continue
+                            events = _skoleportal_fetch_weekplan(
+                                self._session, sp_headers, login_id, week
+                            )
+                            ugep_html = _render_skoleportal_ugeplan(week, events, thisnext)
+                            display_name = api_child_first or child_first_name
+                            if thisnext == "this":
+                                self.ugep_attr[display_name] = ugep_html
+                            elif thisnext == "next":
+                                self.ugepnext_attr[display_name] = ugep_html
+                            _LOGGER.debug(
+                                "EasyIQ SkolePortal result for %s (%s): %s",
+                                display_name,
+                                thisnext,
+                                ugep_html[:200],
+                            )
 
                 if "0062" in self.widgets:
                     _LOGGER.debug("In the Huskelisten flow...")
