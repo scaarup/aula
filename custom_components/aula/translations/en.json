@@ -49,12 +49,13 @@
         "title": "Re-authenticate Aula",
         "description": "Your Aula session needs to be re-authenticated. Username: {username}\n\nClick Submit to continue with MitID authentication."
       },
-      "teacher_name_display": {
+      "schoolschedule_display": {
         "data": {
-          "teacher_name_display": "How should teacher names be displayed?"
+          "teacher_name_display": "How should teacher names be displayed?",
+          "schoolschedule_emoji": "Show emoji icons on schoolschedule events?"
         },
         "description": "",
-        "title": "Teacher Name Display"
+        "title": "Schoolschedule Display"
       }
     }
   },
@@ -80,12 +81,13 @@
         "description": "",
         "title": "Options"
       },
-      "teacher_name_display": {
+      "schoolschedule_display": {
         "data": {
-          "teacher_name_display": "How should teacher names be displayed?"
+          "teacher_name_display": "How should teacher names be displayed?",
+          "schoolschedule_emoji": "Show emoji icons on schoolschedule events?"
         },
         "description": "",
-        "title": "Teacher Name Display"
+        "title": "Schoolschedule Display"
       }
     }
   }

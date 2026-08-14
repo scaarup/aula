@@ -3,10 +3,12 @@ import logging, time
 from .const import (
     DOMAIN,
     CONF_SCHOOLSCHEDULE,
+    CONF_SCHOOLSCHEDULE_EMOJI,
     TEACHER_NAME_INITIALS,
     TEACHER_NAME_FULL,
     TEACHER_NAME_FIRST_NAME_INITIALS,
     resolve_teacher_name_display,
+    get_subject_emoji,
 )
 from homeassistant import config_entries, core
 from homeassistant.components.calendar import (
@@ -36,6 +38,7 @@ async def async_setup_entry(
         return
     client = hass.data[DOMAIN]["client"]
     teacher_name_display = resolve_teacher_name_display(config)
+    show_emoji = config.get(CONF_SCHOOLSCHEDULE_EMOJI, False)
 
     calendar_devices = []
     calendar = []
@@ -57,6 +60,7 @@ async def async_setup_entry(
                 name,
                 childid,
                 teacher_name_display,
+                show_emoji,
             )
         )
 
@@ -82,8 +86,16 @@ async def async_setup_entry(
     async_add_entities(calendar_devices)
 
 class CalendarDevice(CalendarEntity):
-    def __init__(self, hass, calendar, name, childid, teacher_name_display=TEACHER_NAME_INITIALS):
-        self.data = CalendarData(hass, calendar, childid, teacher_name_display)
+    def __init__(
+        self,
+        hass,
+        calendar,
+        name,
+        childid,
+        teacher_name_display=TEACHER_NAME_INITIALS,
+        show_emoji=False,
+    ):
+        self.data = CalendarData(hass, calendar, childid, teacher_name_display, show_emoji)
         self._cal_data = {}
         self._name = "Skoleskema " + name
         self._childid = childid
@@ -304,13 +316,21 @@ class BirthdayCalendarDevice(CalendarEntity):
         return None
 
 class CalendarData:
-    def __init__(self, hass, calendar, childid, teacher_name_display=TEACHER_NAME_INITIALS):
+    def __init__(
+        self,
+        hass,
+        calendar,
+        childid,
+        teacher_name_display=TEACHER_NAME_INITIALS,
+        show_emoji=False,
+    ):
         self.event = None
 
         self._hass = hass
         self._calendar = calendar
         self._childid = childid
         self._teacher_name_display = teacher_name_display
+        self._show_emoji = show_emoji
 
         self.all_events = []
         self._client = hass.data[DOMAIN]["client"]
@@ -329,7 +349,7 @@ class CalendarData:
         _LOGGER.debug("Parsing skoleskema.json...")
         for c in data["data"]:
             if c["type"] == "lesson" and c["belongsToProfiles"][0] == self._childid:
-                event = parseCalendarLesson(c, self._teacher_name_display)
+                event = parseCalendarLesson(c, self._teacher_name_display, self._show_emoji)
                 events.append(event)
         return events
 
@@ -352,7 +372,7 @@ class CalendarData:
         self.parseCalendarData(self)
 
 
-def parseCalendarLesson(lesson, teacher_name_display=TEACHER_NAME_INITIALS):
+def parseCalendarLesson(lesson, teacher_name_display=TEACHER_NAME_INITIALS, show_emoji=False):
     summary = lesson["title"]
     start = datetime.strptime(lesson["startDateTime"], "%Y-%m-%dT%H:%M:%S%z")
     end = datetime.strptime(lesson["endDateTime"], "%Y-%m-%dT%H:%M:%S%z")
@@ -385,6 +405,8 @@ def parseCalendarLesson(lesson, teacher_name_display=TEACHER_NAME_INITIALS):
                     + str(start)
                 )
                 teacher = ""
+    if show_emoji:
+        summary = f"{get_subject_emoji(summary)} {summary}"
     lesson = CalendarEvent(
         summary=str(summary) + ", " + str(teacher),
         start=start,

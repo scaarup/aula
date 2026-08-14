@@ -49,12 +49,13 @@
         "title": "Genautentificer Aula",
         "description": "Din Aula session skal genautentificeres. Brugernavn: {username}\n\nKlik på Send for at fortsætte med MitID godkendelse."
       },
-      "teacher_name_display": {
+      "schoolschedule_display": {
         "data": {
-          "teacher_name_display": "Hvordan skal lærernavne vises?"
+          "teacher_name_display": "Hvordan skal lærernavne vises?",
+          "schoolschedule_emoji": "Vis emoji-ikoner på skoleskema-begivenheder?"
         },
         "description": "",
-        "title": "Visning af lærernavn"
+        "title": "Skoleskema-visning"
       }
     }
   },
@@ -80,12 +81,13 @@
         "description": "",
         "title": "Login"
       },
-      "teacher_name_display": {
+      "schoolschedule_display": {
         "data": {
-          "teacher_name_display": "Hvordan skal lærernavne vises?"
+          "teacher_name_display": "Hvordan skal lærernavne vises?",
+          "schoolschedule_emoji": "Vis emoji-ikoner på skoleskema-begivenheder?"
         },
         "description": "",
-        "title": "Visning af lærernavn"
+        "title": "Skoleskema-visning"
       }
     }
   }

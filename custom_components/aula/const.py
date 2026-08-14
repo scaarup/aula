@@ -39,6 +39,44 @@ def resolve_teacher_name_display(data):
     )
 
 
+CONF_SCHOOLSCHEDULE_EMOJI = "schoolschedule_emoji"
+
+SUBJECT_EMOJIS = {
+    "dansk": "📖",
+    "matematik": "🔢",
+    "engelsk": "🇬🇧",
+    "tysk": "🇩🇪",
+    "fransk": "🇫🇷",
+    "spansk": "🇪🇸",
+    "idræt": "🤸",
+    "musik": "🎵",
+    "billedkunst": "🎨",
+    "historie": "📜",
+    "geografi": "🌍",
+    "biologi": "🧬",
+    "fysik/kemi": "🧪",
+    "natur/teknologi": "🔬",
+    "samfundsfag": "🏛️",
+    "kristendomskundskab": "⛪",
+    "håndværk og design": "🔨",
+    "madkundskab": "🍳",
+    "sløjd": "🪚",
+    "håndarbejde": "🧵",
+    "svømning": "🏊",
+    "trivselstime": "🤝",
+}
+DEFAULT_SUBJECT_EMOJI = "📚"
+
+
+def get_subject_emoji(title):
+    """Return an emoji for a lesson title, matching known subjects as substrings."""
+    lowered = title.lower()
+    for keyword, emoji in SUBJECT_EMOJIS.items():
+        if keyword in lowered:
+            return emoji
+    return DEFAULT_SUBJECT_EMOJI
+
+
 # Authentication method constants
 CONF_MITID_USERNAME = "mitid_username"
 CONF_MITID_PASSWORD = "mitid_password"  # Optional, for TOKEN method

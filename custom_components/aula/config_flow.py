@@ -20,6 +20,7 @@ from .const import (
     TEACHER_NAME_FULL,
     TEACHER_NAME_FIRST_NAME_INITIALS,
     resolve_teacher_name_display,
+    CONF_SCHOOLSCHEDULE_EMOJI,
     CONF_MITID_USERNAME,
     CONF_MITID_PASSWORD,
     CONF_MITID_TOKEN,
@@ -62,11 +63,12 @@ TEACHER_NAME_DISPLAY_OPTIONS = {
     TEACHER_NAME_FIRST_NAME_INITIALS: "Teacher first name (initials)",
 }
 
-TEACHER_NAME_DISPLAY_SCHEMA = vol.Schema(
+SCHOOLSCHEDULE_DISPLAY_SCHEMA = vol.Schema(
     {
         vol.Optional(
             CONF_TEACHER_NAME_DISPLAY, default=TEACHER_NAME_INITIALS
         ): vol.In(TEACHER_NAME_DISPLAY_OPTIONS),
+        vol.Optional(CONF_SCHOOLSCHEDULE_EMOJI, default=False): cv.boolean,
     }
 )
 
@@ -110,7 +112,7 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
 
             if self._feature_flags[CONF_SCHOOLSCHEDULE]:
-                return await self.async_step_teacher_name_display()
+                return await self.async_step_schoolschedule_display()
             if use_token:
                 return await self.async_step_token_credentials()
             return await self.async_step_authenticate()
@@ -119,20 +121,23 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user", data_schema=USER_SCHEMA, errors=errors
         )
 
-    async def async_step_teacher_name_display(
+    async def async_step_schoolschedule_display(
         self, user_input: Optional[Dict[str, Any]] = None
     ):
-        """Ask how to display teacher names (only shown when schoolschedule is enabled)."""
+        """Ask how the schoolschedule should look (only shown when schoolschedule is enabled)."""
         if user_input is not None:
             self._feature_flags[CONF_TEACHER_NAME_DISPLAY] = user_input[
                 CONF_TEACHER_NAME_DISPLAY
+            ]
+            self._feature_flags[CONF_SCHOOLSCHEDULE_EMOJI] = user_input[
+                CONF_SCHOOLSCHEDULE_EMOJI
             ]
             if self._auth_method == AUTH_METHOD_TOKEN:
                 return await self.async_step_token_credentials()
             return await self.async_step_authenticate()
 
         return self.async_show_form(
-            step_id="teacher_name_display", data_schema=TEACHER_NAME_DISPLAY_SCHEMA
+            step_id="schoolschedule_display", data_schema=SCHOOLSCHEDULE_DISPLAY_SCHEMA
         )
 
     async def async_step_token_credentials(self, user_input: Optional[Dict[str, Any]] = None):
@@ -391,6 +396,9 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_UGEPLAN: self._reauth_entry.data.get(CONF_UGEPLAN, True),
             CONF_MU_OPGAVER: self._reauth_entry.data.get(CONF_MU_OPGAVER, True),
             CONF_TEACHER_NAME_DISPLAY: resolve_teacher_name_display(self._reauth_entry.data),
+            CONF_SCHOOLSCHEDULE_EMOJI: self._reauth_entry.data.get(
+                CONF_SCHOOLSCHEDULE_EMOJI, False
+            ),
         }
 
         # Start authentication process
@@ -440,6 +448,9 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_UGEPLAN: self._reauth_entry.data.get(CONF_UGEPLAN, True),
             CONF_MU_OPGAVER: self._reauth_entry.data.get(CONF_MU_OPGAVER, True),
             CONF_TEACHER_NAME_DISPLAY: resolve_teacher_name_display(self._reauth_entry.data),
+            CONF_SCHOOLSCHEDULE_EMOJI: self._reauth_entry.data.get(
+                CONF_SCHOOLSCHEDULE_EMOJI, False
+            ),
         }
 
         # Start authentication process
@@ -462,7 +473,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             self._pending_updates = dict(user_input)
             if self._pending_updates.get(CONF_SCHOOLSCHEDULE):
-                return await self.async_step_teacher_name_display()
+                return await self.async_step_schoolschedule_display()
             return self._save_options()
 
         current = self.config_entry.data
@@ -482,23 +493,31 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         )
         return self.async_show_form(step_id="options", data_schema=options_schema)
 
-    async def async_step_teacher_name_display(self, user_input=None):
-        """Show and handle the teacher-name display select (only when schoolschedule is on)."""
+    async def async_step_schoolschedule_display(self, user_input=None):
+        """Show and handle the schoolschedule display options (only when schoolschedule is on)."""
         if user_input is not None:
             self._pending_updates[CONF_TEACHER_NAME_DISPLAY] = user_input[
                 CONF_TEACHER_NAME_DISPLAY
             ]
+            self._pending_updates[CONF_SCHOOLSCHEDULE_EMOJI] = user_input[
+                CONF_SCHOOLSCHEDULE_EMOJI
+            ]
             return self._save_options()
 
-        default = resolve_teacher_name_display(self.config_entry.data)
+        current = self.config_entry.data
         schema = vol.Schema(
             {
                 vol.Optional(
-                    CONF_TEACHER_NAME_DISPLAY, default=default
+                    CONF_TEACHER_NAME_DISPLAY,
+                    default=resolve_teacher_name_display(current),
                 ): vol.In(TEACHER_NAME_DISPLAY_OPTIONS),
+                vol.Optional(
+                    CONF_SCHOOLSCHEDULE_EMOJI,
+                    default=current.get(CONF_SCHOOLSCHEDULE_EMOJI, False),
+                ): cv.boolean,
             }
         )
-        return self.async_show_form(step_id="teacher_name_display", data_schema=schema)
+        return self.async_show_form(step_id="schoolschedule_display", data_schema=schema)
 
     def _save_options(self):
         # Updating the entry triggers options_update_listener (__init__.py),

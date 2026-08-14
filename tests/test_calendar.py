@@ -9,6 +9,7 @@ from custom_components.aula.const import (
     TEACHER_NAME_INITIALS,
     TEACHER_NAME_FULL,
     TEACHER_NAME_FIRST_NAME_INITIALS,
+    DEFAULT_SUBJECT_EMOJI,
 )
 
 
@@ -63,3 +64,25 @@ def test_parse__teacher_first_name_initials(sample__normal):
 def test_parse__default_is_initials(sample__normal):
     event = parseCalendarLesson(sample__normal)
     assert event.summary == "Test Subject, JB"
+
+
+def test_parse__emoji_off_by_default(sample__normal):
+    event = parseCalendarLesson(sample__normal, TEACHER_NAME_INITIALS, False)
+    assert event.summary == "Test Subject, JB"
+
+
+def test_parse__emoji_matches_known_subject(sample__normal):
+    sample__normal["title"] = "Dansk"
+    event = parseCalendarLesson(sample__normal, TEACHER_NAME_INITIALS, True)
+    assert event.summary == "📖 Dansk, JB"
+
+
+def test_parse__emoji_falls_back_to_default_for_unknown_subject(sample__normal):
+    event = parseCalendarLesson(sample__normal, TEACHER_NAME_INITIALS, True)
+    assert event.summary == f"{DEFAULT_SUBJECT_EMOJI} Test Subject, JB"
+
+
+def test_parse__emoji_applies_to_substitute_teacher(sample__substitute_with_location):
+    sample__substitute_with_location["title"] = "Matematik"
+    event = parseCalendarLesson(sample__substitute_with_location, show_emoji=True)
+    assert event.summary == "🔢 Matematik, VIKAR: Test Substitute"
