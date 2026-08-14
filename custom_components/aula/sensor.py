@@ -148,6 +148,7 @@ class AulaSensor(Entity):
         3 = KOMMET/TIL STEDE
         4 = PÅ TUR
         5 = SOVER
+        7 = PHYSICAL PLACEMENT (Mere info in "location")
         8 = HENTET/GÅET
         """
         if self._client.presence[str(self._child["id"])] == 1:
@@ -170,6 +171,8 @@ class AulaSensor(Entity):
                 "15",
             ]
             daily_info = self._client._daily_overview[str(self._child["id"])]
+            if daily_info["status"] == 7 and daily_info.get('location') is not None:
+                return daily_info['location'].get('name', states[daily_info["status"]])
             return states[daily_info["status"]]
         else:
             _LOGGER.debug("Setting state to n/a for child " + str(self._child["id"]))
