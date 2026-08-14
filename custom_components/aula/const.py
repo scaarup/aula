@@ -24,7 +24,20 @@ EASYIQ_API = "https://api.easyiqcloud.dk/api/aula"
 CONF_SCHOOLSCHEDULE = "schoolschedule"
 CONF_UGEPLAN = "ugeplan"
 CONF_MU_OPGAVER = "mu_opgaver"
-CONF_TEACHER_FULL_NAME = "teacher_full_name"
+CONF_TEACHER_FULL_NAME = "teacher_full_name"  # Deprecated, kept for migration only
+CONF_TEACHER_NAME_DISPLAY = "teacher_name_display"
+TEACHER_NAME_INITIALS = "initials"
+TEACHER_NAME_FULL = "full_name"
+TEACHER_NAME_FIRST_NAME_INITIALS = "first_name_initials"
+
+
+def resolve_teacher_name_display(data):
+    """Return the configured teacher-name display mode, migrating the old boolean flag."""
+    return data.get(
+        CONF_TEACHER_NAME_DISPLAY,
+        TEACHER_NAME_FULL if data.get(CONF_TEACHER_FULL_NAME, False) else TEACHER_NAME_INITIALS,
+    )
+
 
 # Authentication method constants
 CONF_MITID_USERNAME = "mitid_username"

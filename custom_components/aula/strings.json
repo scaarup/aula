@@ -58,6 +58,13 @@
         },
         "description": "",
         "title": "Options"
+      },
+      "teacher_name_display": {
+        "data": {
+          "teacher_name_display": "How should teacher names be displayed?"
+        },
+        "description": "",
+        "title": "Teacher Name Display"
       }
     }
   },
@@ -78,11 +85,17 @@
         "data": {
           "schoolschedule": "Add school schedules as calendar entities?",
           "ugeplan": "Add ugeplaner as sensor attributes?",
-          "mu_opgaver": "Enable assignments from Min Uddannelse",
-          "teacher_full_name": "Show teachers' full name instead of initials"
+          "mu_opgaver": "Enable assignments from Min Uddannelse"
         },
         "description": "",
         "title": "Options"
+      },
+      "teacher_name_display": {
+        "data": {
+          "teacher_name_display": "How should teacher names be displayed?"
+        },
+        "description": "",
+        "title": "Teacher Name Display"
       }
     }
   }
