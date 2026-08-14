@@ -1,6 +1,7 @@
 from homeassistant.loader import async_get_integration
 import asyncio
 from homeassistant import config_entries, core
+from homeassistant.helpers import entity_registry as er
 from .const import (
     DOMAIN,
     STARTUP,
@@ -107,13 +108,25 @@ async def async_setup_entry(
     # Fetch initial data before setting up platforms
     await hass.async_add_executor_job(client.update_data)
 
-    # Keep this list in sync with async_unload_entry so setup and unload are
-    # symmetric. Previously only sensor/binary_sensor were forwarded here while
-    # async_unload_entry also tried to unload "calendar", which raised and left
-    # the entry stuck in the non-recoverable FAILED_UNLOAD state on reload.
+    # Unloading a platform that was never forwarded raises and leaves the entry
+    # stuck in the non-recoverable FAILED_UNLOAD state, so async_unload_entry
+    # must unload exactly what was forwarded here - not what entry.data says
+    # *now*, since options updates change entry.data before the reload that
+    # calls async_unload_entry. Remember the actual list in runtime storage.
     platforms = ["sensor", "binary_sensor"]
     if entry.data.get(CONF_SCHOOLSCHEDULE, True):
         platforms.append("calendar")
+    else:
+        # Unloading only makes calendar entities unavailable, it doesn't remove
+        # them from the registry - so when schoolschedule is off, drop any
+        # calendar entities left over from when it was previously on.
+        entity_registry = er.async_get(hass)
+        for entity_entry in er.async_entries_for_config_entry(
+            entity_registry, entry.entry_id
+        ):
+            if entity_entry.domain == "calendar":
+                entity_registry.async_remove(entity_entry.entity_id)
+    hass_data["platforms"] = platforms
     await hass.config_entries.async_forward_entry_setups(entry, platforms)
     return True
 
@@ -154,12 +167,14 @@ async def async_unload_entry(
     hass: core.HomeAssistant, entry: config_entries.ConfigEntry
 ) -> bool:
     """Unload a config entry."""
-    # Only unload platforms that were actually set up
-    platforms_to_unload = ["sensor", "binary_sensor"]
-
-    # Only include calendar if schoolschedule was enabled
-    if entry.data.get(CONF_SCHOOLSCHEDULE, True):
-        platforms_to_unload.append("calendar")
+    # Unload exactly the platforms that async_setup_entry actually forwarded,
+    # not what entry.data currently says - see the comment there for why.
+    stored = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
+    platforms_to_unload = stored.get("platforms")
+    if platforms_to_unload is None:
+        platforms_to_unload = ["sensor", "binary_sensor"]
+        if entry.data.get(CONF_SCHOOLSCHEDULE, True):
+            platforms_to_unload.append("calendar")
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, platforms_to_unload)
 

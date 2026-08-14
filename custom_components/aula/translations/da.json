@@ -32,8 +32,7 @@
           "mitid_use_token": "Brug MitID kodeviser",
           "schoolschedule": "Aktiver skoleskema kalender",
           "ugeplan": "Aktiver ugeplaner",
-          "mu_opgaver": "Aktiver opgaver fra Min Uddannelse",
-          "teacher_full_name": "Vis lærerens fulde navn (i stedet for initialer)"
+          "mu_opgaver": "Aktiver opgaver fra Min Uddannelse"
         },
         "description": "Konfigurer din Aula integration med MitID",
         "title": "Aula MitID Login"
@@ -49,6 +48,14 @@
       "reauth_confirm": {
         "title": "Genautentificer Aula",
         "description": "Din Aula session skal genautentificeres. Brugernavn: {username}\n\nKlik på Send for at fortsætte med MitID godkendelse."
+      },
+      "schoolschedule_display": {
+        "data": {
+          "teacher_name_display": "Hvordan skal lærernavne vises?",
+          "schoolschedule_emoji": "Vis emoji-ikoner på skoleskema-begivenheder?"
+        },
+        "description": "",
+        "title": "Skoleskema-visning"
       }
     }
   },
@@ -69,11 +76,18 @@
         "data": {
           "schoolschedule": "Skoleskemaer som kalender entiteter",
           "ugeplan": "Ugeplaner som sensor attributter",
-          "mu_opgaver": "Opgaver fra Min Uddannelse som sensor attribut",
-          "teacher_full_name": "Vis lærerens fulde navn (i stedet for initialer)"
+          "mu_opgaver": "Opgaver fra Min Uddannelse som sensor attribut"
         },
         "description": "",
         "title": "Login"
+      },
+      "schoolschedule_display": {
+        "data": {
+          "teacher_name_display": "Hvordan skal lærernavne vises?",
+          "schoolschedule_emoji": "Vis emoji-ikoner på skoleskema-begivenheder?"
+        },
+        "description": "",
+        "title": "Skoleskema-visning"
       }
     }
   }

@@ -32,8 +32,7 @@
           "mitid_use_token": "Using MitID token device",
           "schoolschedule": "Enable school schedule calendar",
           "ugeplan": "Enable weekly plans (ugeplaner)",
-          "mu_opgaver": "Enable assignments from Min Uddannelse",
-          "teacher_full_name": "Show full teacher names (instead of initials)"
+          "mu_opgaver": "Enable assignments from Min Uddannelse"
         },
         "description": "Configure your Aula integration with MitID",
         "title": "Aula MitID Login"
@@ -49,6 +48,14 @@
       "reauth_confirm": {
         "title": "Re-authenticate Aula",
         "description": "Your Aula session needs to be re-authenticated. Username: {username}\n\nClick Submit to continue with MitID authentication."
+      },
+      "schoolschedule_display": {
+        "data": {
+          "teacher_name_display": "How should teacher names be displayed?",
+          "schoolschedule_emoji": "Show emoji icons on schoolschedule events?"
+        },
+        "description": "",
+        "title": "Schoolschedule Display"
       }
     }
   },
@@ -69,11 +76,18 @@
         "data": {
           "schoolschedule": "School schedules as calendar entities",
           "ugeplan": "Ugeplaner as sensor attributes",
-          "mu_opgaver": "Assignments from Min Uddannelse as sensor attributes",
-          "teacher_full_name": "Show full teacher names (instead of initials)"
+          "mu_opgaver": "Assignments from Min Uddannelse as sensor attributes"
         },
         "description": "",
         "title": "Options"
+      },
+      "schoolschedule_display": {
+        "data": {
+          "teacher_name_display": "How should teacher names be displayed?",
+          "schoolschedule_emoji": "Show emoji icons on schoolschedule events?"
+        },
+        "description": "",
+        "title": "Schoolschedule Display"
       }
     }
   }
