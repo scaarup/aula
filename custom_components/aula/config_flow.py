@@ -5,13 +5,10 @@ from typing import Any, Dict, Optional
 
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import AbortFlow
 from homeassistant.helpers import network
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.entity_registry import (
-    async_entries_for_config_entry,
-    async_get,
-)
 import voluptuous as vol
 
 from .const import (
@@ -73,6 +70,12 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._tokens = None
         self._auth_error = None
         self._reauth_entry = None
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        """Get the options flow for this handler."""
+        return OptionsFlowHandler()
 
     async def async_step_user(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle initial user input."""
@@ -243,11 +246,11 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self._reauth_entry:
             # Update existing entry with new tokens
             _LOGGER.info("Updating existing entry with new tokens")
+            # Updating the entry triggers options_update_listener (__init__.py),
+            # which reloads it - an explicit reload here would race that reload.
             self.hass.config_entries.async_update_entry(
                 self._reauth_entry, data=data
             )
-            # Reload the entry to apply new tokens
-            await self.hass.config_entries.async_reload(self._reauth_entry.entry_id)
             return self.async_abort(reason="reauth_successful")
         else:
             # Create new entry
@@ -396,8 +399,8 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         self._mitid_username = self._reauth_entry.data.get(CONF_MITID_USERNAME)
         self._auth_method = auth_method
-        self._mitid_password = user_input.password
-        self._mitid_token = user_input.token
+        self._mitid_password = None
+        self._mitid_token = None
         self._feature_flags = {
             CONF_SCHOOLSCHEDULE: self._reauth_entry.data.get(CONF_SCHOOLSCHEDULE, True),
             CONF_UGEPLAN: self._reauth_entry.data.get(CONF_UGEPLAN, True),
@@ -410,37 +413,40 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class OptionsFlowHandler(config_entries.OptionsFlow):
-    """Handle options flow for Aula integration."""
-
-    def __init__(self, config_entry):
-        """Initialize options flow."""
-        self.config_entry = config_entry
-        self.options = dict(config_entry.options)
+    """Handle options flow for Aula integration (feature toggles)."""
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
-        _LOGGER.debug("Options flow started")
-        _LOGGER.debug(self.config_entry)
-        entity_registry = await async_get(self.hass)
-        entries = async_entries_for_config_entry(
-            entity_registry, self.config_entry.entry_id
-        )
-        repo_map = {e.entity_id: e for e in entries}
-        for entity_id in repo_map.keys():
-            _LOGGER.debug(entity_id)
-        return await self.async_step_user()
+        return await self.async_step_options()
 
-    async def async_step_user(self, user_input=None):
-        """Handle a flow initialized by the user."""
+    async def async_step_options(self, user_input=None):
+        """Show and handle the feature-toggle options form."""
         if user_input is not None:
-            self.options.update(user_input)
-            return await self._update_options()
+            # Updating the entry triggers options_update_listener (__init__.py),
+            # which reloads it - an explicit reload here would race that reload.
+            self.hass.config_entries.async_update_entry(
+                self.config_entry,
+                data={**self.config_entry.data, **user_input},
+            )
+            return self.async_create_entry(title="", data={})
 
-        return self.async_show_form(
-            step_id="user",
-            data_schema=AUTH_SCHEMA,
+        current = self.config_entry.data
+        options_schema = vol.Schema(
+            {
+                vol.Optional(
+                    CONF_SCHOOLSCHEDULE,
+                    default=current.get(CONF_SCHOOLSCHEDULE, True),
+                ): cv.boolean,
+                vol.Optional(
+                    CONF_UGEPLAN, default=current.get(CONF_UGEPLAN, True)
+                ): cv.boolean,
+                vol.Optional(
+                    CONF_MU_OPGAVER, default=current.get(CONF_MU_OPGAVER, True)
+                ): cv.boolean,
+                vol.Optional(
+                    CONF_TEACHER_FULL_NAME,
+                    default=current.get(CONF_TEACHER_FULL_NAME, False),
+                ): cv.boolean,
+            }
         )
-
-    async def _update_options(self):
-        """Update config entry options."""
-        return self.async_create_entry(title="Aula", data=self.options)
+        return self.async_show_form(step_id="options", data_schema=options_schema)
