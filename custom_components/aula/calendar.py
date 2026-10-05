@@ -5,6 +5,7 @@ from .const import (
     CONF_SCHOOLSCHEDULE,
     CONF_SCHOOLSCHEDULE_EMOJI,
     CONF_UGEPLAN,
+    CONF_MEETINGS,
     TEACHER_NAME_INITIALS,
     TEACHER_NAME_FULL,
     TEACHER_NAME_FIRST_NAME_INITIALS,
@@ -37,8 +38,9 @@ async def async_setup_entry(
 
     schoolschedule_enabled = config.get(CONF_SCHOOLSCHEDULE, True)
     ugeplan_enabled = config.get(CONF_UGEPLAN, True)
+    meetings_enabled = config.get(CONF_MEETINGS, False)
 
-    if not schoolschedule_enabled and not ugeplan_enabled:
+    if not schoolschedule_enabled and not ugeplan_enabled and not meetings_enabled:
         async_add_entities([])
         return
     client = hass.data[DOMAIN]["client"]
@@ -92,6 +94,15 @@ async def async_setup_entry(
         if ugeplan_enabled:
             calendar_devices.append(
                 UgeplanCalendarDevice(
+                    hass,
+                    name,
+                    childid,
+                )
+            )
+
+        if meetings_enabled:
+            calendar_devices.append(
+                MeetingCalendarDevice(
                     hass,
                     name,
                     childid,
@@ -538,3 +549,123 @@ class UgeplanCalendarDevice(CalendarEntity):
             upcoming.sort(key=self._event_sort_key)
             return upcoming[0]
         return None
+
+
+def parse_meeting_bookings(meetings, childid, child_name=None):
+    """Return one child's booked meeting times as calendar events.
+
+    Aula meetings with a ``timeSlot`` are booked by parents: each slot is split
+    into ``timeSlotIndexes`` (with gaps for breaks), and an answer whose
+    ``concerningProfileId`` is the child points at the booked index. Both
+    guardians usually answer for the same child, so the booking is de-duplicated.
+    A meeting without time slots is a fixed appointment and is used as it is.
+    Meetings the child has no booking in are left out. With ``child_name`` the
+    summary starts with it, like the birthday calendar's, so meetings stay
+    apart when several children's calendars are shown together.
+    """
+    events = []
+    child = str(childid)
+    for meeting in meetings:
+        summary = meeting.get("title") or "Samtale"
+        if child_name:
+            summary = f"{child_name}: {summary}"
+        description = "\n".join(
+            part
+            for part in (meeting.get("institutionName"), meeting.get("creatorName"))
+            if part
+        )
+        location = (meeting.get("primaryResource") or {}).get("name") or meeting.get(
+            "primaryResourceText"
+        )
+
+        def make_event(start, end):
+            return CalendarEvent(
+                summary=summary,
+                start=datetime.fromisoformat(start),
+                end=datetime.fromisoformat(end),
+                description=description or None,
+                location=location,
+            )
+
+        time_slot = meeting.get("timeSlot")
+        if not time_slot:
+            if child in (str(p) for p in meeting.get("belongsToProfiles") or []):
+                events.append(
+                    make_event(meeting["startDateTime"], meeting["endDateTime"])
+                )
+            continue
+
+        booked = set()
+        for slot in time_slot.get("timeSlots") or []:
+            indexes = slot.get("timeSlotIndexes") or []
+            for answer in slot.get("answers") or []:
+                if str(answer.get("concerningProfileId")) != child:
+                    continue
+                index = answer.get("selectedTimeSlotIndex")
+                if (slot.get("id"), index) in booked:
+                    continue
+                booked.add((slot.get("id"), index))
+                if not isinstance(index, int) or not 0 <= index < len(indexes):
+                    _LOGGER.warning(
+                        "Aula meeting %s has a booking at unknown time slot index %s",
+                        meeting.get("id"),
+                        index,
+                    )
+                    continue
+                events.append(
+                    make_event(indexes[index]["startTime"], indexes[index]["endTime"])
+                )
+
+    events.sort(key=lambda event: event.start)
+    return events
+
+
+class MeetingCalendarDevice(CalendarEntity):
+    """Calendar with a child's booked meetings (skole-hjem-samtaler etc.)."""
+
+    def __init__(
+        self,
+        hass,
+        child_name,
+        childid,
+    ):
+        self._client = hass.data[DOMAIN]["client"]
+        self._childid = childid
+        self._first_name = child_name.split()[0]
+        self._name = "Samtaler " + self._first_name
+        self._event = None
+
+    @property
+    def name(self):
+        """Return calendar name."""
+        return self._name
+
+    @property
+    def unique_id(self):
+        """Return unique entity ID."""
+        return "aula_meetings_" + str(self._childid)
+
+    @property
+    def event(self):
+        """Return the current or next meeting."""
+        return self._event
+
+    def _events(self):
+        return parse_meeting_bookings(
+            self._client.meetings, self._childid, self._first_name
+        )
+
+    def update(self):
+        """Update the current or next meeting."""
+        now = dt_util.now()
+        self._event = next(
+            (event for event in self._events() if event.end > now), None
+        )
+
+    async def async_get_events(self, hass, start_date, end_date):
+        """Return meetings overlapping the requested period."""
+        return [
+            event
+            for event in self._events()
+            if event.end > start_date and event.start < end_date
+        ]

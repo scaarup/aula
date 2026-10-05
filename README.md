@@ -7,6 +7,7 @@ This is a custom component for Home Assistant to integrate Aula.
 - Installable and updatable via HACS
 - UI config flow
 - School schedules as Home Assistant calendars
+- Booked meetings (skole-hjem-samtaler, forældresamtaler) as Home Assistant calendars (opt-in)
 - "Ugeplaner/Ugenoter" from "Min Uddannelse", "Meebook" and "EasyIQ"
 - "Opgaver" from "Min Uddannelse"
 - Messages - if there are unread messages, we turn a binary sensor on and populate it with the message details.
@@ -81,6 +82,16 @@ Shortcut:<br>
 
 - Go to Settings -> Integrations -> Add Integration
 - Search for "Aula" and follow the instructions in the config flow.
+
+### Booked meetings (samtaler)
+
+Enable "booked meetings" when adding the integration, or later under the integration's
+**Configure** options. Each child then gets a `calendar.samtaler_<name>` calendar with
+the time you booked for every skole-hjem-samtale and forældresamtale in Aula — only
+your own booked slot, not the whole booking period, and not other families' slots.
+Events are titled with the child's first name, e.g. "Emilie: Skole-hjem-samtale".
+Meetings are looked up 100 days ahead and refreshed every 30 minutes. A meeting you have
+not booked a time for yet does not appear.
 
 ### Known issues
 - You must use the guardian MitID, childlogin is not supported.
