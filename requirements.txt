@@ -4,4 +4,4 @@ lxml>=5.3.0
 josepy
 pycryptodome>=3.19.0
 qrcode>=7.4.0
-requests>=2.31.0
+requests>=2.33.1
