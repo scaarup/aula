@@ -551,7 +551,7 @@ class UgeplanCalendarDevice(CalendarEntity):
         return None
 
 
-def parse_meeting_bookings(meetings, childid):
+def parse_meeting_bookings(meetings, childid, child_name=None):
     """Return one child's booked meeting times as calendar events.
 
     Aula meetings with a ``timeSlot`` are booked by parents: each slot is split
@@ -559,12 +559,16 @@ def parse_meeting_bookings(meetings, childid):
     ``concerningProfileId`` is the child points at the booked index. Both
     guardians usually answer for the same child, so the booking is de-duplicated.
     A meeting without time slots is a fixed appointment and is used as it is.
-    Meetings the child has no booking in are left out.
+    Meetings the child has no booking in are left out. With ``child_name`` the
+    summary starts with it, like the birthday calendar's, so meetings stay
+    apart when several children's calendars are shown together.
     """
     events = []
     child = str(childid)
     for meeting in meetings:
         summary = meeting.get("title") or "Samtale"
+        if child_name:
+            summary = f"{child_name}: {summary}"
         description = "\n".join(
             part
             for part in (meeting.get("institutionName"), meeting.get("creatorName"))
@@ -627,7 +631,8 @@ class MeetingCalendarDevice(CalendarEntity):
     ):
         self._client = hass.data[DOMAIN]["client"]
         self._childid = childid
-        self._name = "Samtaler " + child_name.split()[0]
+        self._first_name = child_name.split()[0]
+        self._name = "Samtaler " + self._first_name
         self._event = None
 
     @property
@@ -646,7 +651,9 @@ class MeetingCalendarDevice(CalendarEntity):
         return self._event
 
     def _events(self):
-        return parse_meeting_bookings(self._client.meetings, self._childid)
+        return parse_meeting_bookings(
+            self._client.meetings, self._childid, self._first_name
+        )
 
     def update(self):
         """Update the current or next meeting."""

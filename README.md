@@ -89,6 +89,7 @@ Enable "booked meetings" when adding the integration, or later under the integra
 **Configure** options. Each child then gets a `calendar.samtaler_<name>` calendar with
 the time you booked for every skole-hjem-samtale and forældresamtale in Aula — only
 your own booked slot, not the whole booking period, and not other families' slots.
+Events are titled with the child's first name, e.g. "Emilie: Skole-hjem-samtale".
 Meetings are looked up 100 days ahead and refreshed every 30 minutes. A meeting you have
 not booked a time for yet does not appear.
 

@@ -165,3 +165,11 @@ def test_update_meetings_is_throttled(meetings):
     client._update_meetings()
     client._update_meetings()
     assert len(client._session.requests) == 2
+
+
+def test_summary_starts_with_the_childs_name(meetings):
+    events = parse_meeting_bookings(meetings, 1001, "August")
+    assert [e.summary for e in events] == [
+        "August: Skole-hjem-samtale",
+        "August: Samtale med AKT",
+    ]
