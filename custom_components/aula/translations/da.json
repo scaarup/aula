@@ -32,7 +32,8 @@
           "mitid_use_token": "Brug MitID kodeviser",
           "schoolschedule": "Aktiver skoleskema kalender",
           "ugeplan": "Aktiver ugeplaner",
-          "mu_opgaver": "Aktiver opgaver fra Min Uddannelse"
+          "mu_opgaver": "Aktiver opgaver fra Min Uddannelse",
+          "meetings": "Aktiver kalender med bookede samtaler"
         },
         "description": "Konfigurer din Aula integration med MitID",
         "title": "Aula MitID Login"
@@ -76,7 +77,8 @@
         "data": {
           "schoolschedule": "Skoleskemaer som kalender entiteter",
           "ugeplan": "Ugeplaner som sensor attributter",
-          "mu_opgaver": "Opgaver fra Min Uddannelse som sensor attribut"
+          "mu_opgaver": "Opgaver fra Min Uddannelse som sensor attribut",
+          "meetings": "Bookede samtaler som kalender entiteter"
         },
         "description": "",
         "title": "Login"

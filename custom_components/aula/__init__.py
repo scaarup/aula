@@ -17,6 +17,7 @@ from .const import (
     CONF_SCHOOLSCHEDULE,
     CONF_UGEPLAN,
     CONF_MU_OPGAVER,
+    CONF_MEETINGS,
 )
 import logging
 from .client import Client
@@ -93,6 +94,7 @@ async def async_setup_entry(
         mitid_identity,
         hass,  # Pass hass reference for token persistence
         entry,  # Pass config entry for token persistence
+        entry.data.get(CONF_MEETINGS, False),
     )
     hass.data[DOMAIN]["client"] = client
 
@@ -114,12 +116,12 @@ async def async_setup_entry(
     # *now*, since options updates change entry.data before the reload that
     # calls async_unload_entry. Remember the actual list in runtime storage.
     platforms = ["sensor", "binary_sensor"]
-    if entry.data.get(CONF_SCHOOLSCHEDULE, True):
+    if _calendar_enabled(entry.data):
         platforms.append("calendar")
     else:
         # Unloading only makes calendar entities unavailable, it doesn't remove
-        # them from the registry - so when schoolschedule is off, drop any
-        # calendar entities left over from when it was previously on.
+        # them from the registry - so when no calendar is enabled, drop any
+        # calendar entities left over from when one was previously on.
         entity_registry = er.async_get(hass)
         for entity_entry in er.async_entries_for_config_entry(
             entity_registry, entry.entry_id
@@ -129,6 +131,11 @@ async def async_setup_entry(
     hass_data["platforms"] = platforms
     await hass.config_entries.async_forward_entry_setups(entry, platforms)
     return True
+
+
+def _calendar_enabled(data):
+    """Return whether any feature that provides calendar entities is on."""
+    return data.get(CONF_SCHOOLSCHEDULE, True) or data.get(CONF_MEETINGS, False)
 
 
 async def async_update_tokens(
@@ -173,7 +180,7 @@ async def async_unload_entry(
     platforms_to_unload = stored.get("platforms")
     if platforms_to_unload is None:
         platforms_to_unload = ["sensor", "binary_sensor"]
-        if entry.data.get(CONF_SCHOOLSCHEDULE, True):
+        if _calendar_enabled(entry.data):
             platforms_to_unload.append("calendar")
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, platforms_to_unload)
