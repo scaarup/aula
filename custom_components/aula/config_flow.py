@@ -15,6 +15,7 @@ from .const import (
     CONF_SCHOOLSCHEDULE,
     CONF_UGEPLAN,
     CONF_MU_OPGAVER,
+    CONF_MEETINGS,
     CONF_TEACHER_NAME_DISPLAY,
     TEACHER_NAME_INITIALS,
     TEACHER_NAME_FULL,
@@ -47,6 +48,7 @@ USER_SCHEMA = vol.Schema(
         vol.Optional(CONF_SCHOOLSCHEDULE, default=True): cv.boolean,
         vol.Optional(CONF_UGEPLAN, default=True): cv.boolean,
         vol.Optional(CONF_MU_OPGAVER, default=True): cv.boolean,
+        vol.Optional(CONF_MEETINGS, default=False): cv.boolean,
     }
 )
 
@@ -108,6 +110,7 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_SCHOOLSCHEDULE: user_input.get(CONF_SCHOOLSCHEDULE, True),
                 CONF_UGEPLAN: user_input.get(CONF_UGEPLAN, True),
                 CONF_MU_OPGAVER: user_input.get(CONF_MU_OPGAVER, True),
+                CONF_MEETINGS: user_input.get(CONF_MEETINGS, False),
                 CONF_MITID_USE_TOKEN: use_token,
             }
 
@@ -395,6 +398,7 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_SCHOOLSCHEDULE: self._reauth_entry.data.get(CONF_SCHOOLSCHEDULE, True),
             CONF_UGEPLAN: self._reauth_entry.data.get(CONF_UGEPLAN, True),
             CONF_MU_OPGAVER: self._reauth_entry.data.get(CONF_MU_OPGAVER, True),
+            CONF_MEETINGS: self._reauth_entry.data.get(CONF_MEETINGS, False),
             CONF_TEACHER_NAME_DISPLAY: resolve_teacher_name_display(self._reauth_entry.data),
             CONF_SCHOOLSCHEDULE_EMOJI: self._reauth_entry.data.get(
                 CONF_SCHOOLSCHEDULE_EMOJI, False
@@ -447,6 +451,7 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_SCHOOLSCHEDULE: self._reauth_entry.data.get(CONF_SCHOOLSCHEDULE, True),
             CONF_UGEPLAN: self._reauth_entry.data.get(CONF_UGEPLAN, True),
             CONF_MU_OPGAVER: self._reauth_entry.data.get(CONF_MU_OPGAVER, True),
+            CONF_MEETINGS: self._reauth_entry.data.get(CONF_MEETINGS, False),
             CONF_TEACHER_NAME_DISPLAY: resolve_teacher_name_display(self._reauth_entry.data),
             CONF_SCHOOLSCHEDULE_EMOJI: self._reauth_entry.data.get(
                 CONF_SCHOOLSCHEDULE_EMOJI, False
@@ -488,6 +493,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 ): cv.boolean,
                 vol.Optional(
                     CONF_MU_OPGAVER, default=current.get(CONF_MU_OPGAVER, True)
+                ): cv.boolean,
+                vol.Optional(
+                    CONF_MEETINGS, default=current.get(CONF_MEETINGS, False)
                 ): cv.boolean,
             }
         )

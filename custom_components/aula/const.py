@@ -25,6 +25,7 @@ EASYIQ_SKOLEPORTAL_API = "https://skoleportal.easyiqcloud.dk"
 CONF_SCHOOLSCHEDULE = "schoolschedule"
 CONF_UGEPLAN = "ugeplan"
 CONF_MU_OPGAVER = "mu_opgaver"
+CONF_MEETINGS = "meetings"
 CONF_TEACHER_FULL_NAME = "teacher_full_name"  # Deprecated, kept for migration only
 CONF_TEACHER_NAME_DISPLAY = "teacher_name_display"
 TEACHER_NAME_INITIALS = "initials"
@@ -41,6 +42,15 @@ def resolve_teacher_name_display(data):
 
 
 CONF_SCHOOLSCHEDULE_EMOJI = "schoolschedule_emoji"
+
+# Meetings booked through Aula's time-slot picker (skole-hjem-samtaler,
+# forældresamtaler). Parents book them weeks ahead, so they are fetched further
+# ahead than the 14-day school schedule.
+MEETING_TYPES = ("school_home_meeting", "parental_meeting")
+MEETINGS_DAYS_AHEAD = 100
+MEETINGS_REFRESH_MINUTES = 30
+# Aula's calendar API answers 403 to any request spanning more than 50 days.
+CALENDAR_MAX_SPAN_DAYS = 50
 
 SUBJECT_EMOJIS = {
     "dansk": "📖",

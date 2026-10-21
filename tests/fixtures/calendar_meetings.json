@@ -1,0 +1,228 @@
+{
+ "status": {
+  "code": 0,
+  "message": "OK"
+ },
+ "data": [
+  {
+   "creatorName": "Test Teacher",
+   "institutionName": "Test Skole",
+   "primaryResource": null,
+   "primaryResourceText": null,
+   "lesson": null,
+   "allDay": false,
+   "private": false,
+   "id": 1,
+   "type": "school_home_meeting",
+   "title": "Skole-hjem-samtale",
+   "startDateTime": "2026-11-16T13:15:00+00:00",
+   "endDateTime": "2026-11-23T16:00:00+00:00",
+   "belongsToProfiles": [
+    1001
+   ],
+   "timeSlot": {
+    "childRequired": true,
+    "timeSlots": [
+     {
+      "id": 11,
+      "startDate": "2026-11-16T13:15:00+00:00",
+      "endDate": "2026-11-16T16:00:00+00:00",
+      "answers": [
+       {
+        "id": 1,
+        "instProfileId": 2001,
+        "concerningProfileId": 1002,
+        "selectedTimeSlotIndex": 6
+       },
+       {
+        "id": 2,
+        "instProfileId": 2002,
+        "concerningProfileId": 1002,
+        "selectedTimeSlotIndex": 6
+       },
+       {
+        "id": 3,
+        "instProfileId": null,
+        "concerningProfileId": null,
+        "selectedTimeSlotIndex": 0
+       }
+      ],
+      "timeSlotIndexes": [
+       {
+        "startTime": "2026-11-16T13:15:00.000+00:00",
+        "endTime": "2026-11-16T13:30:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-16T13:30:00.000+00:00",
+        "endTime": "2026-11-16T13:45:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-16T13:45:00.000+00:00",
+        "endTime": "2026-11-16T14:00:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-16T14:00:00.000+00:00",
+        "endTime": "2026-11-16T14:15:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-16T14:15:00.000+00:00",
+        "endTime": "2026-11-16T14:30:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-16T14:30:00.000+00:00",
+        "endTime": "2026-11-16T14:45:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-16T15:00:00.000+00:00",
+        "endTime": "2026-11-16T15:15:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-16T15:15:00.000+00:00",
+        "endTime": "2026-11-16T15:30:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-16T15:30:00.000+00:00",
+        "endTime": "2026-11-16T15:45:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-16T15:45:00.000+00:00",
+        "endTime": "2026-11-16T16:00:00.000+00:00"
+       }
+      ],
+      "belongsToResource": null
+     },
+     {
+      "id": 12,
+      "startDate": "2026-11-23T13:15:00+00:00",
+      "endDate": "2026-11-23T16:00:00+00:00",
+      "answers": [
+       {
+        "id": 4,
+        "instProfileId": 2003,
+        "concerningProfileId": 1001,
+        "selectedTimeSlotIndex": 9
+       },
+       {
+        "id": 5,
+        "instProfileId": 2004,
+        "concerningProfileId": 1001,
+        "selectedTimeSlotIndex": 9
+       },
+       {
+        "id": 6,
+        "instProfileId": 2005,
+        "concerningProfileId": 1003,
+        "selectedTimeSlotIndex": 3
+       }
+      ],
+      "timeSlotIndexes": [
+       {
+        "startTime": "2026-11-23T13:15:00.000+00:00",
+        "endTime": "2026-11-23T13:30:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-23T13:30:00.000+00:00",
+        "endTime": "2026-11-23T13:45:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-23T13:45:00.000+00:00",
+        "endTime": "2026-11-23T14:00:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-23T14:00:00.000+00:00",
+        "endTime": "2026-11-23T14:15:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-23T14:15:00.000+00:00",
+        "endTime": "2026-11-23T14:30:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-23T14:30:00.000+00:00",
+        "endTime": "2026-11-23T14:45:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-23T15:00:00.000+00:00",
+        "endTime": "2026-11-23T15:15:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-23T15:15:00.000+00:00",
+        "endTime": "2026-11-23T15:30:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-23T15:30:00.000+00:00",
+        "endTime": "2026-11-23T15:45:00.000+00:00"
+       },
+       {
+        "startTime": "2026-11-23T15:45:00.000+00:00",
+        "endTime": "2026-11-23T16:00:00.000+00:00"
+       }
+      ],
+      "belongsToResource": null
+     }
+    ]
+   }
+  },
+  {
+   "creatorName": "Test Pædagog",
+   "institutionName": "Test Børnehus",
+   "primaryResource": null,
+   "primaryResourceText": null,
+   "lesson": null,
+   "allDay": false,
+   "private": false,
+   "id": 2,
+   "type": "parental_meeting",
+   "title": "Forældresamtale",
+   "startDateTime": "2026-10-13T10:05:00+00:00",
+   "endDateTime": "2026-10-27T12:00:00+00:00",
+   "belongsToProfiles": [
+    1003
+   ],
+   "timeSlot": {
+    "childRequired": false,
+    "timeSlots": [
+     {
+      "id": 21,
+      "startDate": "2026-10-27T11:00:00+00:00",
+      "endDate": "2026-10-27T11:20:00+00:00",
+      "answers": [
+       {
+        "id": 7,
+        "instProfileId": 2003,
+        "concerningProfileId": 1003,
+        "selectedTimeSlotIndex": 0
+       }
+      ],
+      "timeSlotIndexes": [
+       {
+        "startTime": "2026-10-27T11:00:00.000+00:00",
+        "endTime": "2026-10-27T11:20:00.000+00:00"
+       }
+      ],
+      "belongsToResource": 99007
+     }
+    ]
+   }
+  },
+  {
+   "creatorName": "Test Teacher",
+   "institutionName": "Test Skole",
+   "primaryResource": {
+    "name": "Lokale 12"
+   },
+   "primaryResourceText": null,
+   "lesson": null,
+   "allDay": false,
+   "private": false,
+   "id": 3,
+   "type": "school_home_meeting",
+   "title": "Samtale med AKT",
+   "startDateTime": "2026-12-01T08:00:00+00:00",
+   "endDateTime": "2026-12-01T08:30:00+00:00",
+   "belongsToProfiles": [
+    1001
+   ],
+   "timeSlot": null
+  }
+ ]
+}

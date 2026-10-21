@@ -19,6 +19,10 @@ from .const import (
     SYSTEMATIC_API,
     EASYIQ_API,
     EASYIQ_SKOLEPORTAL_API,
+    MEETING_TYPES,
+    MEETINGS_DAYS_AHEAD,
+    MEETINGS_REFRESH_MINUTES,
+    CALENDAR_MAX_SPAN_DAYS,
 )
 from homeassistant.exceptions import ConfigEntryNotReady, ConfigEntryAuthFailed
 from homeassistant.components.calendar import CalendarEvent
@@ -64,6 +68,17 @@ def decode_mu_deeplink(url):
     except Exception:
         _LOGGER.debug("Could not decode Min Uddannelse deep link: " + str(url))
         return None
+
+
+def calendar_date_chunks(start, days, max_span=CALENDAR_MAX_SPAN_DAYS):
+    """Split ``days`` from ``start`` into (start, end) date pairs Aula accepts."""
+    chunks = []
+    end = start + datetime.timedelta(days=days)
+    while start < end:
+        chunk_end = min(start + datetime.timedelta(days=max_span), end)
+        chunks.append((start, chunk_end))
+        start = chunk_end
+    return chunks
 
 
 def format_mu_opgaver(opgaver, first_name):
@@ -141,6 +156,7 @@ class Client:
         mitid_identity=1,
         hass=None,
         config_entry=None,
+        meetings=False,
     ):
         self._mitid_username = mitid_username
         self._auth_method = auth_method
@@ -185,6 +201,12 @@ class Client:
         self._schoolschedule = schoolschedule
         self._ugeplan = ugeplan
         self._mu_opgaver = mu_opgaver
+        self._meetings = meetings
+
+        # Meetings (samtaler) found in Aula's calendar, refreshed every
+        # MEETINGS_REFRESH_MINUTES rather than on every 5-minute update.
+        self.meetings = []
+        self._meetings_fetched_at = None
 
         # Token storage
         self._tokens = stored_tokens or {}
@@ -408,6 +430,60 @@ class Client:
             + str(self._mu_opgaver)
         )
         return True
+
+    def _update_meetings(self):
+        """Fetch meetings (samtaler) for all children, MEETINGS_DAYS_AHEAD ahead."""
+        now = datetime.datetime.now(datetime.timezone.utc)
+        if self._meetings_fetched_at and now - self._meetings_fetched_at < datetime.timedelta(
+            minutes=MEETINGS_REFRESH_MINUTES
+        ):
+            return
+
+        csrf_token = self._get_csrf_token()
+        headers = {"content-type": "application/json"}
+        if csrf_token:
+            headers["csrfp-token"] = csrf_token
+
+        meetings = {}
+        for start, end in calendar_date_chunks(now.date(), MEETINGS_DAYS_AHEAD):
+            post_data = {
+                "instProfileIds": [int(childid) for childid in self._childids],
+                "resourceIds": [],
+                "start": start.strftime("%Y-%m-%d 00:00:00.0000+0000"),
+                "end": end.strftime("%Y-%m-%d 00:00:00.0000+0000"),
+            }
+            try:
+                res = self._session.post(
+                    self.apiurl
+                    + "?method=calendar.getEventsByProfileIdsAndResourceIds"
+                    + self._get_access_token_param(),
+                    json=post_data,
+                    headers=headers,
+                    verify=True,
+                )
+                data = res.json()
+                status = data["status"]["code"]
+                events = data["data"] if status == 0 else None
+            except (requests.RequestException, ValueError, KeyError, TypeError) as err:
+                _LOGGER.warning("Could not fetch Aula meetings: %s", err)
+                return
+            if events is None:
+                # Keep the previous meetings rather than showing none.
+                _LOGGER.warning(
+                    "Aula refused the meetings request for %s to %s (status %s)",
+                    start,
+                    end,
+                    status,
+                )
+                return
+            for event in events:
+                # A meeting spanning two chunks is returned by both.
+                if event.get("type") in MEETING_TYPES:
+                    meetings[event["id"]] = event
+
+        self.meetings = list(meetings.values())
+        self._meetings_fetched_at = now
+        _LOGGER.debug("Found %s Aula meetings", len(self.meetings))
 
     def get_child_class_groups(self):
         """Return each child's main class group."""
@@ -979,6 +1055,8 @@ class Client:
                     + str(res.text)
                 )
         # End of calendar
+        if self._meetings is True:
+            self._update_meetings()
         # MU Opgaver:
         if self._mu_opgaver is True:
             try:

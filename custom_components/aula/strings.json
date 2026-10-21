@@ -19,7 +19,8 @@
           "mitid_username": "MitID Username",
           "schoolschedule": "Enable school schedule calendar",
           "ugeplan": "Enable weekly plans (ugeplaner)",
-          "mu_opgaver": "Enable assignments from Min Uddannelse"
+          "mu_opgaver": "Enable assignments from Min Uddannelse",
+          "meetings": "Enable booked meetings calendar (samtaler)"
         },
         "description": "Configure your Aula integration with MitID. You will need to approve the login in your MitID app.",
         "title": "Aula MitID Login"
@@ -54,7 +55,8 @@
       "options": {
         "data": {
           "schoolschedule": "Add school schedules as calendar entities?",
-          "ugeplan": "Add ugeplaner as sensor attributes?"
+          "ugeplan": "Add ugeplaner as sensor attributes?",
+          "meetings": "Add booked meetings (samtaler) as calendar entities?"
         },
         "description": "",
         "title": "Options"
@@ -86,7 +88,8 @@
         "data": {
           "schoolschedule": "Add school schedules as calendar entities?",
           "ugeplan": "Add ugeplaner as sensor attributes?",
-          "mu_opgaver": "Enable assignments from Min Uddannelse"
+          "mu_opgaver": "Enable assignments from Min Uddannelse",
+          "meetings": "Add booked meetings (samtaler) as calendar entities?"
         },
         "description": "",
         "title": "Options"
