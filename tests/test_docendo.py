@@ -58,8 +58,9 @@ def test_jwt_subject():
     assert jwt_subject(fake_jwt({"sub": "abcd12ef"})) == "abcd12ef"
 
 
-def test_jwt_subject__invalid_token():
-    assert jwt_subject("not-a-jwt") is None
+@pytest.mark.parametrize("token", ["not-a-jwt", None, fake_jwt({"sub": 42}), fake_jwt({"sub": ""}), fake_jwt({})])
+def test_jwt_subject__invalid_or_missing_sub(token):
+    assert jwt_subject(token) is None
 
 
 def test_plans_for_child__matches_class_ignoring_case_and_punctuation(plans):
@@ -73,11 +74,21 @@ def test_plans_for_child__unmatched_returns_all_plans_unmatched(plans):
     assert docendo_plans_for_child(plans, None) == (plans, False)
 
 
-def test_parse_payload__rejects_unexpected_shapes(payload):
+def test_parse_payload__returns_plans(payload):
     assert len(parse_docendo_payload(payload)) == 2
-    for bad in (None, [], {"data": None}, {"data": {"weekPlans": None}}, {"message": "Unauthorized"}):
-        with pytest.raises(ValueError):
-            parse_docendo_payload(bad)
+
+
+@pytest.mark.parametrize("bad", [None, [], {"data": None}, {"data": {"weekPlans": None}}, {"message": "Unauthorized"}])
+def test_parse_payload__rejects_unexpected_shapes(bad):
+    with pytest.raises(ValueError):
+        parse_docendo_payload(bad)
+
+
+def test_parse_payload__error_does_not_contain_content():
+    with pytest.raises(ValueError) as err:
+        parse_docendo_payload({"data": {"weekPlans": {"name": "4A", "note": "Hemmelig note"}}})
+    assert "Hemmelig" not in str(err.value) and "4A" not in str(err.value)
+    assert "weekPlans is dict" in str(err.value)
 
 
 def test_parse_payload__drops_non_dict_plans():
@@ -92,13 +103,26 @@ def test_parse_time__utc_and_naive_are_utc():
         assert parsed.replace(tzinfo=None) == expected
 
 
-def test_parse_time__invalid_values():
-    for value in (None, "", 123, "not a date"):
-        assert parse_docendo_time(value) is None
+def test_parse_time__summer_time():
+    assert parse_docendo_time("2026-10-23T07:00:00Z").hour == 9
+
+
+@pytest.mark.parametrize("value", [None, "", 123, "not a date"])
+def test_parse_time__invalid_values(value):
+    assert parse_docendo_time(value) is None
 
 
 def test_lessons__skips_empty_and_sorts(plans):
     assert [ev["title"] for ev, _, _ in docendo_lessons(plans[0])] == ["Dansk", "Matematik"]
+
+
+@pytest.mark.parametrize("end_time", [None, "2026-10-26T07:00:00Z", "2026-10-26T06:00:00Z", "garbage"])
+def test_lessons__end_not_after_start_gets_default_duration(end_time):
+    plan = {"events": [{"title": "X", "description": "d", "startTime": "2026-10-26T07:00:00Z", "endTime": end_time}]}
+    ((_, start, end),) = docendo_lessons(plan)
+    assert end - start == datetime.timedelta(minutes=45)
+    (event,) = docendo_calendar_events([plan])
+    assert event.end > event.start
 
 
 def test_lessons__tolerates_malformed_events():
@@ -114,6 +138,29 @@ def test_sanitize_html__removes_scripts_and_handlers():
     assert "javascript:" not in clean
     assert '<a href="https://example.com">ok</a>' in clean
     assert clean.startswith("<p>Hej")
+
+
+@pytest.mark.parametrize(
+    "dirty",
+    [
+        "<![CDATA[ > <img src=x onerror=alert(1)> ]]>",
+        "<!-- --!> <img src=x onerror=alert(1)> -->",
+        "<!x <img src=x onerror=alert(1)>>",
+        "<?php <img src=x onerror=alert(1)> ?>",
+    ],
+)
+def test_sanitize_html__drops_comments_and_cdata(dirty):
+    assert "onerror" not in sanitize_html(dirty)
+
+
+def test_format__learning_goal_label():
+    plan = {"name": "4A", "events": [{"title": "Dansk", "learningGoal": "<p>Mål</p>", "startTime": "2026-10-26T07:00:00Z"}]}
+    assert "<i>Læringsmål:</i> <p>Mål</p>" in format_docendo_weekplans([plan])
+
+
+def test_format__groups_by_local_day():
+    plan = {"name": "4A", "events": [{"title": "Sen", "description": "x", "startTime": "2026-10-26T23:30:00Z"}]}
+    assert "<h3>tirsdag 27/10</h3>" in format_docendo_weekplans([plan])
 
 
 def test_format__converts_utc_to_local_time(plans):
@@ -181,21 +228,29 @@ class FakeSession:
 
 
 def make_client(children, responses, jwt=None):
+    # Mirrors the Docendo state set up in Client.__init__.
     client = object.__new__(Client)
     client._children = children
     client._mitid_username = "mitid-user"
     client._docendo_cache = {}
     client._docendo_session = FakeSession(responses)
+    client._docendo_children = set()
+    client._docendo_failing = False
     client.ugep_attr = {}
     client.ugepnext_attr = {}
     client.ugep_events = {}
+    client.tokens = {}
     jwt = jwt or fake_jwt({"sub": "aula-user"})
-    client.tokens = {DOCENDO_WIDGET: ("Bearer " + jwt, datetime.datetime.now(datetime.timezone.utc))}
+    client.get_token = lambda widget: "Bearer " + jwt
     return client
 
 
-def child(name, class_name):
-    return {"id": hash(name), "name": name, "institutionProfile": {"metadata": class_name}}
+def child(child_id, name, class_name):
+    return {"id": child_id, "name": name, "institutionProfile": {"metadata": class_name}}
+
+
+def both_weeks(body):
+    return {"2026-W44": FakeResponse(body=body), "2026-W45": FakeResponse(body=body)}
 
 
 def test_fetch__sends_widget_headers(payload):
@@ -221,39 +276,75 @@ def test_fetch__caches_per_week(payload):
     assert len(client._docendo_session.calls) == 1
 
 
-def test_fetch__unauthorized_evicts_token_and_returns_none():
-    client = make_client([], {"2026-W44": FakeResponse(401, {"message": "Unauthorized"})})
+def test_fetch__refetches_after_cache_expires(payload):
+    client = make_client([], {"2026-W44": FakeResponse(body=payload)})
+    plans = client.fetch_docendo_weekplans("2026-W44")
+    client._docendo_cache["2026-W44"] = (dt_util.utcnow() - datetime.timedelta(minutes=31), plans)
+    client.fetch_docendo_weekplans("2026-W44")
+    assert len(client._docendo_session.calls) == 2
+
+
+def test_fetch__no_token_returns_none(payload):
+    client = make_client([], {"2026-W44": FakeResponse(body=payload)})
+    client.get_token = lambda widget: None
+    assert client.fetch_docendo_weekplans("2026-W44") is None
+    assert client._docendo_session.calls == []
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_fetch__rejected_token_is_evicted(status):
+    client = make_client([], {"2026-W44": FakeResponse(status, {"message": "Unauthorized"})})
+    client.tokens[DOCENDO_WIDGET] = ("Bearer x", dt_util.utcnow())
     assert client.fetch_docendo_weekplans("2026-W44") is None
     assert DOCENDO_WIDGET not in client.tokens
 
 
-def test_fetch__errors_fall_back_to_cached_plans(payload):
+@pytest.mark.parametrize(
+    "failure",
+    [
+        requests.ConnectionError("down"),
+        FakeResponse(503),
+        FakeResponse(body=requests.exceptions.JSONDecodeError("Expecting value", "<html>", 0)),
+        FakeResponse(body={"data": None}),
+    ],
+)
+def test_fetch__errors_fall_back_to_cached_plans(payload, failure):
     client = make_client([], {"2026-W44": FakeResponse(body=payload)})
     plans = client.fetch_docendo_weekplans("2026-W44")
-    stale = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=1)
-    client._docendo_cache["2026-W44"] = (stale, plans)
-    for failure in (requests.ConnectionError("down"), FakeResponse(body=ValueError("not json")), FakeResponse(body={"data": None})):
-        client._docendo_session.responses["2026-W44"] = failure
-        assert client.fetch_docendo_weekplans("2026-W44") == plans
+    client._docendo_cache["2026-W44"] = (dt_util.utcnow() - datetime.timedelta(hours=1), plans)
+    client._docendo_session.responses["2026-W44"] = failure
+    assert client.fetch_docendo_weekplans("2026-W44") == plans
+
+
+def test_fetch__warns_once_per_outage(payload, caplog):
+    client = make_client([], {"2026-W44": FakeResponse(503)})
+    with caplog.at_level("DEBUG"):
+        for _ in range(3):
+            client.fetch_docendo_weekplans("2026-W44")
+        client._docendo_session.responses["2026-W44"] = FakeResponse(body=payload)
+        client.fetch_docendo_weekplans("2026-W44")
+    levels = [r.levelname for r in caplog.records if "Docendo" in r.getMessage()]
+    assert levels.count("WARNING") == 1
+    assert "Docendo ugeplan is available again" in caplog.text
 
 
 def test_update__writes_only_matching_children_and_leaves_siblings(payload):
-    children = [child("Alma Hansen", "4A"), child("Bo Hansen", "0B"), child("Carl Hansen", "7C")]
-    client = make_client(children, {"2026-W44": FakeResponse(body=payload), "2026-W45": FakeResponse(body=payload)})
+    children = [child(1, "Alma Hansen", "4A"), child(2, "Bo Hansen", "0B"), child(3, "Carl Hansen", "7C")]
+    client = make_client(children, both_weeks(payload))
     sibling_event = CalendarEvent(summary="EasyIQ", start=datetime.date(2026, 10, 26), end=datetime.date(2026, 10, 27))
     client.ugep_attr["Carl"] = "from another provider"
     client.ugep_events["Carl"] = [sibling_event]
 
     client.update_docendo_weekplans("2026-W44", "2026-W45")
 
-    assert "Ugeplan for 4A" in client.ugep_attr["Alma"] and "0B" not in client.ugep_attr["Alma"]
+    assert "Ugeplan for 4A" in client.ugep_attr["Alma"] and "Ugeplan for 0B" not in client.ugep_attr["Alma"]
     assert "Ugeplan for 0B" in client.ugepnext_attr["Bo"]
     assert client.ugep_attr["Carl"] == "from another provider"
     assert client.ugep_events["Carl"] == [sibling_event]
 
 
 def test_update__events_cover_both_weeks_without_duplicates(payload):
-    client = make_client([child("Alma Hansen", "4A")], {"2026-W44": FakeResponse(body=payload), "2026-W45": FakeResponse(body=payload)})
+    client = make_client([child(1, "Alma Hansen", "4A")], both_weeks(payload))
     client.update_docendo_weekplans("2026-W44", "2026-W45")
     client._docendo_cache.clear()
     client.update_docendo_weekplans("2026-W44", "2026-W45")
@@ -262,16 +353,49 @@ def test_update__events_cover_both_weeks_without_duplicates(payload):
 
 
 def test_update__this_week_failure_does_not_duplicate_events(payload):
-    client = make_client([child("Alma Hansen", "4A")], {"2026-W44": FakeResponse(503), "2026-W45": FakeResponse(body=payload)})
+    client = make_client([child(1, "Alma Hansen", "4A")], {"2026-W44": FakeResponse(503), "2026-W45": FakeResponse(body=payload)})
     for _ in range(3):
         client._docendo_cache.clear()
-        client.tokens[DOCENDO_WIDGET] = ("Bearer " + fake_jwt({"sub": "u"}), datetime.datetime.now(datetime.timezone.utc))
         client.update_docendo_weekplans("2026-W44", "2026-W45")
     assert len(client.ugep_events["Alma"]) == 2
     assert "Alma" not in client.ugep_attr
 
 
+def test_update__both_weeks_failing_leaves_state_alone():
+    client = make_client([child(1, "Alma Hansen", "4A")], {"2026-W44": FakeResponse(503), "2026-W45": FakeResponse(503)})
+    client.ugep_attr["Alma"] = "old"
+    client.update_docendo_weekplans("2026-W44", "2026-W45")
+    assert client.ugep_attr == {"Alma": "old"} and client.ugep_events == {}
+
+
+def test_update__empty_week_clears_previous_docendo_plan(payload):
+    client = make_client([child(1, "Alma Hansen", "4A")], both_weeks(payload))
+    client.update_docendo_weekplans("2026-W44", "2026-W45")
+    empty = {"data": {"weekPlans": []}}
+    client._docendo_cache.clear()
+    client._docendo_session.responses.update({"2026-W44": FakeResponse(body=empty), "2026-W45": FakeResponse(body=empty)})
+    client.update_docendo_weekplans("2026-W44", "2026-W45")
+    assert client.ugep_attr["Alma"] == "" and client.ugepnext_attr["Alma"] == ""
+    assert client.ugep_events["Alma"] == []
+
+
+def test_update__empty_week_does_not_touch_other_providers():
+    client = make_client([child(1, "Alma Hansen", "4A"), child(2, "Bo Hansen", "0B")], both_weeks({"data": {"weekPlans": []}}))
+    client.ugep_attr["Alma"] = "from another provider"
+    client.update_docendo_weekplans("2026-W44", "2026-W45")
+    assert client.ugep_attr == {"Alma": "from another provider"}
+
+
 def test_update__single_child_gets_unmatched_plans(payload):
-    client = make_client([child("Alma Hansen", None)], {"2026-W44": FakeResponse(body=payload), "2026-W45": FakeResponse(body=payload)})
+    client = make_client([child(1, "Alma Hansen", None)], both_weeks(payload))
     client.update_docendo_weekplans("2026-W44", "2026-W45")
     assert "Ugeplan for 4A" in client.ugep_attr["Alma"] and "Ugeplan for 0B" in client.ugep_attr["Alma"]
+
+
+@pytest.mark.parametrize("name", [None, "", "   "])
+def test_update__child_without_name_uses_id(payload, name):
+    client = make_client([child(42, name, "4A")], both_weeks(payload))
+    client.update_docendo_weekplans("2026-W44", "2026-W45")
+    assert "Ugeplan for 4A" in client.ugep_attr["42"]
+
+

@@ -9,7 +9,7 @@ import base64
 import urllib.parse
 import html
 import uuid
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, CData, Comment, Declaration, Doctype, ProcessingInstruction
 import json, re
 from .const import (
     API,
@@ -53,6 +53,7 @@ EASYIQ_WIDGETS = ("0001", "0128", "00142", "0142")
 DOCENDO_WIDGET = "0057"
 # Weekplans change rarely, so Docendo is not asked on every 5-minute update.
 DOCENDO_REFRESH_MINUTES = 30
+DOCENDO_DEFAULT_LESSON_MINUTES = 45
 
 DANISH_WEEKDAYS = ("mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag")
 
@@ -136,9 +137,10 @@ def jwt_subject(jwt):
     try:
         payload = jwt.split(".")[1]
         payload = payload + "=" * (-len(payload) % 4)
-        return json.loads(base64.urlsafe_b64decode(payload)).get("sub")
-    except Exception:
+        sub = json.loads(base64.urlsafe_b64decode(payload)).get("sub")
+    except (IndexError, ValueError, AttributeError, TypeError):
         return None
+    return sub if isinstance(sub, str) and sub else None
 
 
 DOCENDO_LESSON_FIELDS = (
@@ -158,6 +160,9 @@ def sanitize_html(value):
     if not isinstance(value, str) or not value.strip():
         return ""
     soup = BeautifulSoup(value, "html.parser")
+    # Browsers can end comments and CDATA early, turning their content into markup.
+    for node in soup.find_all(string=lambda s: isinstance(s, (Comment, CData, Declaration, Doctype, ProcessingInstruction))):
+        node.extract()
     for tag in soup.find_all(True):
         if tag.decomposed:
             continue
@@ -184,11 +189,26 @@ def text_field(item, key):
 
 
 def parse_docendo_payload(payload):
-    """Return the weekplans of a Docendo response, or raise ValueError."""
-    plans = ((payload or {}).get("data") or {}).get("weekPlans") if isinstance(payload, dict) else None
+    """Return the weekplans of a Docendo response, or raise ValueError.
+
+    The error describes only the shape of the payload, never its content, as
+    the content holds class names and teachers' notes.
+    """
+    data = payload.get("data") if isinstance(payload, dict) else None
+    plans = data.get("weekPlans") if isinstance(data, dict) else None
     if not isinstance(plans, list):
-        raise ValueError("unexpected Docendo payload: " + str(payload)[:200])
+        keys = sorted(payload)[:10] if isinstance(payload, dict) else []
+        raise ValueError(
+            f"unexpected Docendo payload: {type(payload).__name__} with keys {keys}, "
+            f"data is {type(data).__name__}, weekPlans is {type(plans).__name__}"
+        )
     return [plan for plan in plans if isinstance(plan, dict)]
+
+
+def child_first_name(child):
+    """Return the key the ugeplan attributes use for a child: the first name, or the id."""
+    parts = (child.get("name") or "").split()
+    return parts[0] if parts else str(child.get("id"))
 
 
 def docendo_plans_for_child(plans, class_name):
@@ -196,9 +216,10 @@ def docendo_plans_for_child(plans, class_name):
 
     Docendo returns the plans for all of the guardian's children in one call,
     named after the class (e.g. "4I"). Aula exposes the child's class as
-    institutionProfile.metadata. Names are compared ignoring case and
-    punctuation, so "4.I" matches "4I". If nothing matches, all plans are
-    returned with matched=False, and the caller decides whether to use them.
+    institutionProfile.metadata. Names are compared ignoring case, whitespace
+    and punctuation, so "4.I" and "4 i" match "4I". If nothing matches, or the
+    class name is empty, all plans are returned with matched=False and the
+    caller decides whether to use them.
     """
 
     def normalize(name):
@@ -213,7 +234,12 @@ def docendo_plans_for_child(plans, class_name):
 
 
 def docendo_lessons(plan):
-    """Return (event, start, end) for the lessons of a weekplan that carry text, sorted by start."""
+    """Return (event, start, end) for the lessons of a weekplan, sorted by start.
+
+    Only lessons with text and a valid start are kept. A missing or invalid end
+    (not after the start) becomes DOCENDO_DEFAULT_LESSON_MINUTES after the start,
+    as Home Assistant rejects calendar events without a duration.
+    """
     lessons = []
     events = plan.get("events")
     for ev in events if isinstance(events, list) else []:
@@ -222,13 +248,15 @@ def docendo_lessons(plan):
         start = parse_docendo_time(ev.get("startTime"))
         if start is None:
             continue
-        end = parse_docendo_time(ev.get("endTime")) or start + datetime.timedelta(minutes=45)
+        end = parse_docendo_time(ev.get("endTime"))
+        if end is None or end <= start:
+            end = start + datetime.timedelta(minutes=DOCENDO_DEFAULT_LESSON_MINUTES)
         lessons.append((ev, start, end))
     return sorted(lessons, key=lambda lesson: lesson[1])
 
 
 def parse_docendo_time(value):
-    """Parse a Docendo UTC timestamp into local time, or None."""
+    """Parse a Docendo timestamp (UTC; naive values are taken as UTC) into local time, or None."""
     if not isinstance(value, str) or not value:
         return None
     try:
@@ -243,6 +271,7 @@ def parse_docendo_time(value):
 
 
 def html_to_text(value):
+    """Return the plain text of an HTML fragment, or "" for empty or non-string input."""
     if not isinstance(value, str) or not value.strip():
         return ""
     return BeautifulSoup(value, "html.parser").get_text("\n").strip()
@@ -380,11 +409,13 @@ class Client:
         self.meetings = []
         self._meetings_fetched_at = None
 
-        # Docendo weekplans per ISO week, as (fetched_at, plans), refreshed
-        # every DOCENDO_REFRESH_MINUTES. A dedicated session keeps Aula's
-        # cookies away from Docendo.
+        # Docendo weekplans per week, as (fetched_at, plans), refreshed every
+        # DOCENDO_REFRESH_MINUTES. A dedicated session keeps Aula's cookies
+        # away from Docendo. tests/test_docendo.py (make_client) mirrors these.
         self._docendo_cache = {}
         self._docendo_session = requests.Session()
+        self._docendo_children = set()
+        self._docendo_failing = False
 
         # Token storage
         self._tokens = stored_tokens or {}
@@ -952,13 +983,23 @@ class Client:
         self.tokens[widgetid] = (token, datetime.datetime.now(pytz.utc))
         return token
 
-    def fetch_docendo_weekplans(self, week):
-        """Return the Docendo weekplans for one ISO week, or None.
+    def _docendo_failed(self, message, *args):
+        """Log a Docendo failure: a warning the first time, then debug until it recovers."""
+        if self._docendo_failing:
+            _LOGGER.debug(message, *args)
+        else:
+            _LOGGER.warning(message, *args)
+            self._docendo_failing = True
 
-        Plans are cached for DOCENDO_REFRESH_MINUTES. When a refresh fails,
-        the last plans fetched for that week are returned instead.
+    def fetch_docendo_weekplans(self, week):
+        """Return the Docendo weekplans for one week ("YYYY-Www"), or None.
+
+        Plans are cached for DOCENDO_REFRESH_MINUTES, and entries older than
+        14 days are dropped. When a refresh fails, the last plans fetched for
+        that week are returned instead. A 401/403 drops the cached widget
+        token, so the next attempt mints a new one.
         """
-        now = datetime.datetime.now(pytz.utc)
+        now = dt_util.utcnow()
         cached = self._docendo_cache.get(week)
         if cached and now - cached[0] < datetime.timedelta(minutes=DOCENDO_REFRESH_MINUTES):
             return cached[1]
@@ -969,7 +1010,8 @@ class Client:
         jwt = token.removeprefix("Bearer ").strip()
         headers = {
             "accept": "application/json",
-            # Docendo's own Aula widget sends this misspelled scheme.
+            # Docendo's own Aula widget sends this misspelled scheme. Switch to
+            # "Bearer" if Docendo ever starts rejecting it.
             "authorization": "Baerer " + jwt,
             "origin": "https://www.aula.dk",
             "referer": "https://www.aula.dk/",
@@ -992,13 +1034,19 @@ class Client:
                 self.tokens.pop(DOCENDO_WIDGET, None)
             response.raise_for_status()
             plans = parse_docendo_payload(response.json())
+        except requests.exceptions.JSONDecodeError:
+            self._docendo_failed("Docendo ugeplan for %s is not JSON (HTTP %s)", week, response.status_code)
+            return cached[1] if cached else None
         except requests.RequestException as err:
-            _LOGGER.warning("Docendo ugeplan request for %s failed: %s", week, err)
+            self._docendo_failed("Docendo ugeplan request for %s failed: %s", week, err)
             return cached[1] if cached else None
         except ValueError as err:
-            _LOGGER.warning("Could not parse Docendo ugeplan for %s: %s", week, str(err)[:300])
+            self._docendo_failed("Could not parse Docendo ugeplan for %s: %s", week, err)
             return cached[1] if cached else None
 
+        if self._docendo_failing:
+            _LOGGER.info("Docendo ugeplan is available again")
+            self._docendo_failing = False
         _LOGGER.debug("Docendo ugeplan for %s: %s", week, [text_field(p, "name") for p in plans])
         self._docendo_cache = {
             w: entry for w, entry in self._docendo_cache.items() if now - entry[0] < datetime.timedelta(days=14)
@@ -1011,39 +1059,38 @@ class Client:
 
         Only children whose class has a Docendo plan are written, so siblings
         whose ugeplan comes from another provider are left alone. With a single
-        child, an unmatched plan is still shown. Calendar events are built for
-        both weeks and assigned in one step.
+        child, an unmatched plan is still shown. Once Docendo has written a
+        child, a week that comes back without a plan for them (e.g. a holiday)
+        clears that week instead of keeping last week's plan. Calendar events
+        are built for both weeks and assigned in one step.
         """
         weeks = {"this": self.fetch_docendo_weekplans(thisweek), "next": self.fetch_docendo_weekplans(nextweek)}
         if weeks["this"] is None and weeks["next"] is None:
             return
 
         for child in self._children:
-            first_name = child["name"].split()[0] if child.get("name") else str(child.get("id"))
+            first_name = child_first_name(child)
             class_name = (child.get("institutionProfile") or {}).get("metadata")
             events = []
-            written = False
             for thisnext, plans in weeks.items():
                 if plans is None:
                     continue
                 child_plans, matched = docendo_plans_for_child(plans, class_name)
-                if not child_plans or (not matched and len(self._children) > 1):
+                if child_plans and (matched or len(self._children) == 1):
+                    _ugep = format_docendo_weekplans(child_plans)
+                    events.extend(docendo_calendar_events(child_plans))
+                    self._docendo_children.add(first_name)
+                elif first_name in self._docendo_children:
+                    _ugep = ""
+                else:
+                    _LOGGER.debug("No Docendo weekplan matches class %r for %s", class_name, first_name)
                     continue
-                _ugep = format_docendo_weekplans(child_plans)
                 if thisnext == "this":
                     self.ugep_attr[first_name] = _ugep
                 else:
                     self.ugepnext_attr[first_name] = _ugep
-                events.extend(docendo_calendar_events(child_plans))
-                written = True
-            if written:
+            if first_name in self._docendo_children:
                 self.ugep_events[first_name] = events
-            else:
-                _LOGGER.info(
-                    "No Docendo weekplan matches class %r for %s",
-                    class_name,
-                    first_name,
-                )
 
     def _ensure_valid_token(self):
         """Ensure we have a valid access token, refresh if needed.
@@ -1425,7 +1472,9 @@ class Client:
                 and not any(widget in self.widgets for widget in EASYIQ_WIDGETS)
             ):
                 _LOGGER.error(
-                    "You have enabled ugeplaner, but we cannot find any supported widgets (0029,0023,0004,0057,0062,EasyIQ) in Aula."
+                    "You have enabled ugeplaner, but we cannot find any supported widgets in Aula "
+                    "(Min Uddannelse 0029/0023, Meebook 0004, Docendo 0057, Systematic 0062, EasyIQ %s).",
+                    "/".join(EASYIQ_WIDGETS),
                 )
             if mu_uge_widget is not None and "0004" in self.widgets:
                 _LOGGER.warning(

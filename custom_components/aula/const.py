@@ -22,6 +22,10 @@ MEEBOOK_API = "https://app.meebook.com/aulaapi"
 SYSTEMATIC_API = "https://systematic-momo.dk/api/aula"
 EASYIQ_API = "https://api.easyiqcloud.dk/api/aula"
 EASYIQ_SKOLEPORTAL_API = "https://skoleportal.easyiqcloud.dk"
+# Docendo ugeplan: unofficial, the same endpoint Docendo's Aula widget (0057) calls.
+# GET /weekplan?currentWeekNumber=YYYY-Www&userProfile=guardian
+# Headers: "authorization: Baerer <widget JWT>" (sic), "aulasessionuuid: <JWT sub>".
+# Response: data.weekPlans[] per class: {name, note (HTML), events[] (UTC times)}.
 DOCENDO_API = "https://app.docendo.dk/aula/v2"
 CONF_SCHOOLSCHEDULE = "schoolschedule"
 CONF_UGEPLAN = "ugeplan"

@@ -8,7 +8,7 @@ This is a custom component for Home Assistant to integrate Aula.
 - UI config flow
 - School schedules as Home Assistant calendars
 - Booked meetings (skole-hjem-samtaler, forældresamtaler) as Home Assistant calendars (opt-in)
-- "Ugeplaner/Ugenoter" from "Min Uddannelse", "Meebook" and "EasyIQ"
+- "Ugeplaner/Ugenoter" from "Min Uddannelse", "Meebook", "EasyIQ" and "Docendo"
 - "Opgaver" from "Min Uddannelse"
 - Messages - if there are unread messages, we turn a binary sensor on and populate it with the message details.
 - "Huskelisten" from "Systematic"
@@ -92,6 +92,31 @@ your own booked slot, not the whole booking period, and not other families' slot
 Events are titled with the child's first name, e.g. "Emilie: Skole-hjem-samtale".
 Meetings are looked up 100 days ahead and refreshed every 30 minutes. A meeting you have
 not booked a time for yet does not appear.
+
+### Ugeplaner (weekly plans)
+
+Enable "ugeplaner" when adding the integration, or later under **Configure**. The
+integration picks the ugeplan source from the widgets your school has enabled in Aula:
+
+| Source | Aula widget |
+|---|---|
+| Min Uddannelse | 0029 / 0023 |
+| Meebook | 0004 |
+| EasyIQ | 0001 / 0128 / 0142 |
+| Docendo | 0057 |
+
+This week's and next week's plan are stored in the `ugeplan` and `ugeplan_next`
+attributes of the child's sensor. For EasyIQ and Docendo, lessons are also added to the
+child's "Ugeplan <name>" calendar.
+
+**Docendo:** Docendo returns one weekplan per class. The plan is matched to a child by the
+class shown in Aula (e.g. "4I"), ignoring case, spaces and punctuation. With one child, an
+unmatched plan is still shown; with several children, a plan that matches none of their
+classes is skipped (logged at debug level). Docendo plans are refreshed every 30 minutes.
+
+> Ugeplaner are read through the same unofficial widget endpoints that Aula's own web
+> page uses, and can change without notice. If an update breaks them, you can go back to
+> the previous version in HACS (Aula → ⋮ → Redownload → pick the version).
 
 ### Known issues
 - You must use the guardian MitID, childlogin is not supported.
