@@ -1,0 +1,58 @@
+{
+    "data": {
+        "weekPlans": [
+            {
+                "name": "4A",
+                "note": "<p>Note til ugen for 4A</p>",
+                "events": [
+                    {
+                        "color": "#f1c40f",
+                        "startTime": "2026-10-27T07:00:00Z",
+                        "endTime": "2026-10-27T08:30:00Z",
+                        "title": "Matematik",
+                        "description": "<p>Brøker &amp; decimaltal</p>",
+                        "learningGoal": "",
+                        "notesForStudents": ""
+                    },
+                    {
+                        "color": "#f1c40f",
+                        "startTime": "2026-10-26T08:30:00Z",
+                        "endTime": "2026-10-26T08:45:00Z",
+                        "title": "Fællespause",
+                        "description": "",
+                        "learningGoal": "",
+                        "notesForStudents": ""
+                    },
+                    {
+                        "color": "#cd8c95",
+                        "startTime": "2026-10-26T07:00:00Z",
+                        "endTime": "2026-10-26T08:30:00Z",
+                        "title": "Dansk",
+                        "description": "<p>Vi læser højt</p>",
+                        "learningGoal": "",
+                        "notesForStudents": "<p>Husk biblioteksbøger</p>"
+                    }
+                ],
+                "calendar_id": 1,
+                "stil_id": ["1000001"]
+            },
+            {
+                "name": "0B",
+                "note": "",
+                "events": [
+                    {
+                        "color": "#e74c3c",
+                        "startTime": "2026-10-28T07:00:00Z",
+                        "endTime": "2026-10-28T08:30:00Z",
+                        "title": "0B MAT",
+                        "description": "<p>Tal og former</p>",
+                        "learningGoal": "",
+                        "notesForStudents": ""
+                    }
+                ],
+                "calendar_id": 2,
+                "stil_id": ["1000002"]
+            }
+        ]
+    }
+}
