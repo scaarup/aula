@@ -95,6 +95,8 @@ def format_mu_opgaver(opgaver, first_name):
         _ugep = _ugep + "<h3>" + opgave["kuvertnavn"] + "</h3>"
         _ugep = _ugep + "Ugedag: " + opgave["ugedag"] + "<br>"
         _ugep = _ugep + "Type: " + opgave["opgaveType"] + "<br>"
+        status = "✅ Færdig" if opgave.get("erFaerdig") else "⬜ Ikke færdig"
+        _ugep = _ugep + "Status: " + status + "<br>"
         for hold in opgave["hold"]:
             _ugep = _ugep + "Hold: " + hold["navn"] + "<br>"
         try:
