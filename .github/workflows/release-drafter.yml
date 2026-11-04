@@ -20,6 +20,7 @@ jobs:
       - name: Create Release
         uses: release-drafter/release-drafter@v6
         with:
+          include-pre-releases: true
           disable-releaser: github.ref != 'refs/heads/master'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
