@@ -109,6 +109,31 @@ This week's and next week's plan are stored in the `ugeplan` and `ugeplan_next`
 attributes of the child's sensor. For EasyIQ and Docendo, lessons are also added to the
 child's "Ugeplan <name>" calendar.
 
+The same plans are also available as structured data in `ugeplan_json` and
+`ugeplan_next_json` (no HTML). The plan is split at its headings, so you can pick a
+day or the general information without parsing HTML:
+
+```yaml
+text: "<whole plan as plain text>"
+sections:
+  - heading: "Vigtig information"
+    text: "..."
+  - heading: "Mandag 03/11"
+    weekday: 0          # 0 = Monday, only set when the heading starts with a weekday
+    text: "08:00-09:00 Dansk\n..."
+```
+
+```yaml
+# Today's plan, e.g. for a notification or TTS
+{{ (state_attr("sensor.hojelse_skole_emilie", "ugeplan_json").sections
+    | selectattr("weekday", "defined") | selectattr("weekday", "eq", now().weekday())
+    | map(attribute="text") | list)[0] | default("Ingen ugeplan i dag") }}
+```
+
+The value is empty when there is no plan. How well the sections map to days depends on
+how the school's source structures its plan (Min Uddannelse plans are free text, so they
+may come as one section). `ugeplan` and `ugeplan_next` are unchanged.
+
 **Docendo:** Docendo returns one weekplan per class. The plan is matched to a child by the
 class shown in Aula (e.g. "4I"), ignoring case, spaces and punctuation. With one child, an
 unmatched plan is still shown; with several children, a plan that matches none of their

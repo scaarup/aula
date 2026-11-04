@@ -1,3 +1,4 @@
+from .client import ugeplan_to_data
 from .const import DOMAIN
 import logging
 from datetime import datetime, timedelta
@@ -241,6 +242,15 @@ class AulaSensor(Entity):
                     + str(self._child["name"].split()[0])
                     + ". Perhaps not available yet."
                 )
+            # The same plans as structured data (JSON-friendly dicts), see ugeplan_to_data.
+            # None when the plan is missing or empty.
+            first_name = self._child["name"].split()[0]
+            attributes["ugeplan_json"] = ugeplan_to_data(
+                self._client.ugep_attr.get(first_name)
+            )
+            attributes["ugeplan_next_json"] = ugeplan_to_data(
+                self._client.ugepnext_attr.get(first_name)
+            )
         if self._client.presence[str(self._child["id"])] == 1:
             for attribute in fields:
                 if attribute == "exitTime" and daily_info[attribute] == "23:59:00":

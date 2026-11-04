@@ -58,6 +58,83 @@ DOCENDO_DEFAULT_LESSON_MINUTES = 45
 DANISH_WEEKDAYS = ("mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag")
 
 
+HEADING_TAGS = {"h1": 1, "h2": 2, "h3": 3, "h4": 4}
+BLOCK_TAGS = {"p", "div", "ul", "ol", "li", "tr", "table"}
+
+
+def _html_tokens(node):
+    """Yield ("heading", level, text), ("text", str) and ("break",) tokens for an HTML node."""
+    for child in node.children:
+        name = getattr(child, "name", None)
+        if name is None:
+            if isinstance(child, (Comment, CData, Declaration, Doctype, ProcessingInstruction)):
+                continue
+            yield ("text", str(child))
+        elif name in HEADING_TAGS:
+            yield ("heading", HEADING_TAGS[name], " ".join(child.get_text(" ").split()))
+        elif name == "br":
+            yield ("break",)
+        elif name in ("script", "style"):
+            continue
+        else:
+            if name in BLOCK_TAGS:
+                yield ("break",)
+            if name == "li":
+                yield ("text", "- ")
+            yield from _html_tokens(child)
+            if name in BLOCK_TAGS:
+                yield ("break",)
+
+
+def _clean_lines(buffer):
+    """Collapse whitespace per line and drop empty lines and runs of blank lines."""
+    lines = [" ".join(line.split()) for line in "".join(buffer).split("\n")]
+    return "\n".join(line for line in lines if line)
+
+
+def ugeplan_to_data(value):
+    """Return an ugeplan HTML string as structured data, or None when there is no plan.
+
+    Every ugeplan source (Min Uddannelse, Meebook, EasyIQ, Docendo) is stored as
+    HTML. This splits it at its headings into sections, so templates and
+    automations can pick e.g. today's plan without parsing HTML:
+
+        {"text": "<whole plan as plain text>",
+         "sections": [{"heading": "Mandag 3/11", "weekday": 0, "text": "..."}]}
+
+    Text before the first heading gets an empty heading. "weekday" (0 = Monday)
+    is only set when the heading starts with a Danish weekday name.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return None
+    soup = BeautifulSoup(value, "html.parser")
+    sections = []
+    current = {"heading": "", "level": 0, "buffer": []}
+
+    def close():
+        text = _clean_lines(current["buffer"])
+        if text or current["heading"]:
+            section = {"heading": current["heading"], "text": text}
+            first_word = current["heading"].lower().split(" ")[0].strip(".,:")
+            if first_word in DANISH_WEEKDAYS:
+                section["weekday"] = DANISH_WEEKDAYS.index(first_word)
+            sections.append(section)
+
+    for token in _html_tokens(soup):
+        if token[0] == "heading":
+            close()
+            current = {"heading": token[2], "level": token[1], "buffer": []}
+        elif token[0] == "break":
+            current["buffer"].append("\n")
+        else:
+            current["buffer"].append(token[1])
+    close()
+    if not sections:
+        return None
+    text = _clean_lines([(f"{s['heading']}\n" if s["heading"] else "") + s["text"] + "\n" for s in sections])
+    return {"text": text, "sections": sections}
+
+
 def decode_mu_deeplink(url):
     """Return the MinUddannelse page URL embedded in an opgave "url" field.
 
