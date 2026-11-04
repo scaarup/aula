@@ -62,7 +62,20 @@ HEADING_TAGS = {"h1": 1, "h2": 2, "h3": 3, "h4": 4}
 BLOCK_TAGS = {"p", "div", "ul", "ol", "li", "tr", "table"}
 
 
-def _html_tokens(node):
+def _is_bold_title(tag):
+    """True for a short <strong>/<b> that opens its block and is followed by a line break or nothing.
+
+    Teachers' free text (Min Uddannelse) has no real headings, but marks a subject
+    as a bold line ("Dansk", "Historie"), so that is treated as a heading.
+    """
+    if tag.name not in ("strong", "b") or len(tag.get_text(strip=True)) > 60:
+        return False
+    previous = [s for s in tag.previous_siblings if getattr(s, "name", None) or str(s).strip()]
+    following = [s for s in tag.next_siblings if getattr(s, "name", None) or str(s).strip()]
+    return not previous and (not following or getattr(following[0], "name", None) == "br")
+
+
+def _html_tokens(node, bold_headings=False):
     """Yield ("heading", level, text), ("text", str) and ("break",) tokens for an HTML node."""
     for child in node.children:
         name = getattr(child, "name", None)
@@ -76,12 +89,14 @@ def _html_tokens(node):
             yield ("break",)
         elif name in ("script", "style"):
             continue
+        elif bold_headings and _is_bold_title(child):
+            yield ("heading", 4, " ".join(child.get_text(" ").split()))
         else:
             if name in BLOCK_TAGS:
                 yield ("break",)
             if name == "li":
                 yield ("text", "- ")
-            yield from _html_tokens(child)
+            yield from _html_tokens(child, bold_headings)
             if name in BLOCK_TAGS:
                 yield ("break",)
 
@@ -99,11 +114,11 @@ def ugeplan_to_data(value):
     HTML. This splits it at its headings into sections, so templates and
     automations can pick e.g. today's plan without parsing HTML:
 
-        {"text": "<whole plan as plain text>",
-         "sections": [{"heading": "Mandag 3/11", "weekday": 0, "text": "..."}]}
+        {"sections": [{"heading": "Mandag 3/11", "weekday": 0, "text": "..."}]}
 
     Text before the first heading gets an empty heading. "weekday" (0 = Monday)
-    is only set when the heading starts with a Danish weekday name.
+    is only set when the heading starts with a Danish weekday name. Plans without
+    headings (Min Uddannelse free text) are split at short bold lines instead.
     """
     if not isinstance(value, str) or not value.strip():
         return None
@@ -120,7 +135,9 @@ def ugeplan_to_data(value):
                 section["weekday"] = DANISH_WEEKDAYS.index(first_word)
             sections.append(section)
 
-    for token in _html_tokens(soup):
+    # Real headings (Docendo, EasyIQ) win; bold lines only count in plans without any.
+    bold_headings = soup.find(list(HEADING_TAGS)) is None
+    for token in _html_tokens(soup, bold_headings):
         if token[0] == "heading":
             close()
             current = {"heading": token[2], "level": token[1], "buffer": []}
@@ -131,8 +148,7 @@ def ugeplan_to_data(value):
     close()
     if not sections:
         return None
-    text = _clean_lines([(f"{s['heading']}\n" if s["heading"] else "") + s["text"] + "\n" for s in sections])
-    return {"text": text, "sections": sections}
+    return {"sections": sections}
 
 
 def decode_mu_deeplink(url):

@@ -114,7 +114,6 @@ The same plans are also available as structured data in `ugeplan_json` and
 day or the general information without parsing HTML:
 
 ```yaml
-text: "<whole plan as plain text>"
 sections:
   - heading: "Vigtig information"
     text: "..."
@@ -131,8 +130,8 @@ sections:
 ```
 
 The value is empty when there is no plan. How well the sections map to days depends on
-how the school's source structures its plan (Min Uddannelse plans are free text, so they
-may come as one section). `ugeplan` and `ugeplan_next` are unchanged.
+how the school's source structures its plan. Plans without headings (Min Uddannelse free
+text) are split at short bold lines such as a subject name, and have no `weekday`. `ugeplan` and `ugeplan_next` are unchanged.
 
 **Docendo:** Docendo returns one weekplan per class. The plan is matched to a child by the
 class shown in Aula (e.g. "4I"), ignoring case, spaces and punctuation. With one child, an
