@@ -1214,6 +1214,24 @@ class Client:
         if not is_logged_in:
             self.login()
 
+        # Children with extended access ("udvidet adgang", e.g. a bonus parent)
+        # are only returned by getProfileContext, not by getProfilesByLogin.
+        # Fetched before the child lists are reset, so other platforms never
+        # see a half-built list.
+        extended_institutions = []
+        try:
+            context = self._session.get(
+                self.apiurl
+                + "?method=profiles.getProfileContext&portalrole=guardian"
+                + self._get_access_token_param(),
+                verify=True,
+            ).json()
+            extended_institutions = (context.get("data") or {}).get(
+                "institutions"
+            ) or []
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("Could not fetch extended-access children: %s", err)
+
         self._childnames = {}
         self._institutions = {}
         self._childuserids = []
@@ -1241,6 +1259,28 @@ class Client:
                     self._institutionProfiles.append(
                         str(institutioncode["institutionCode"])
                     )
+        # Add the extended-access children fetched above.
+        for institution in extended_institutions:
+            for child in institution.get("children") or []:
+                if str(child.get("id")) in self._childids:
+                    continue
+                try:
+                    child = dict(child)
+                    child["institutionProfile"] = {
+                        "institutionName": institution.get("name")
+                    }
+                    self._childnames[child["id"]] = child["name"]
+                    self._institutions[child["id"]] = institution.get("name")
+                    self._children.append(child)
+                    self._childids.append(str(child["id"]))
+                    self._childuserids.append(str(child["userId"]))
+                    self._childrenFirstNamesAndUserIDs[child["userId"]] = child[
+                        "name"
+                    ].split()[0]
+                    if str(child["institutionCode"]) not in self._institutionProfiles:
+                        self._institutionProfiles.append(str(child["institutionCode"]))
+                except (KeyError, TypeError, AttributeError) as err:
+                    _LOGGER.warning("Could not add extended-access child: %s", err)
         _LOGGER.debug("Child ids and names: " + str(self._childnames))
         _LOGGER.debug("Child ids and institution names: " + str(self._institutions))
         _LOGGER.debug("Institution codes: " + str(self._institutionProfiles))
