@@ -1269,6 +1269,12 @@ class AulaLoginClient:
                     self.tokens["refresh_token"] = token_response["refresh_token"]
                 if "expires_in" in token_response:
                     self.tokens["expires_in"] = token_response["expires_in"]
+                    # Keep expires_at in step with authenticate(), so callers that
+                    # persist the token set store a meaningful expiry instead of the
+                    # value from the previous (or the initial) grant.
+                    self.tokens["expires_at"] = (
+                        time.time() + token_response["expires_in"]
+                    )
 
                 self.log(
                     f" Token renewed successfully! Expires in: {token_response.get('expires_in', 'unknown')} seconds"

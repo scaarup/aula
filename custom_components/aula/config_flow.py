@@ -288,10 +288,14 @@ class AulaCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self._reauth_entry:
             # Update existing entry with new tokens
             _LOGGER.info("Updating existing entry with new tokens")
-            # Updating the entry triggers options_update_listener (__init__.py),
-            # which reloads it - an explicit reload here would race that reload.
             self.hass.config_entries.async_update_entry(
                 self._reauth_entry, data=data
+            )
+            # options_update_listener (__init__.py) ignores token-only updates, so
+            # ask for the reload explicitly - the running client must pick up the
+            # new tokens. Not a race: the listener will not reload for this change.
+            self.hass.config_entries.async_schedule_reload(
+                self._reauth_entry.entry_id
             )
             return self.async_abort(reason="reauth_successful")
         else:
