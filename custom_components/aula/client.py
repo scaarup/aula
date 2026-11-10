@@ -683,6 +683,29 @@ class Client:
             res = {"raw_response": response.text}
         return res
 
+    def _persist_tokens(self):
+        """Persist the current token set to the config entry.
+
+        Called from executor threads; hops to the event loop because
+        async_update_entry is a callback. Best effort - a failure here does not
+        invalidate the token that was just obtained.
+        """
+        if not (self._hass and self._config_entry):
+            return
+
+        # Local import: __init__ imports this module at load time.
+        from . import async_update_tokens
+
+        try:
+            asyncio.run_coroutine_threadsafe(
+                async_update_tokens(
+                    self._hass, self._config_entry, dict(self._tokens)
+                ),
+                self._hass.loop,
+            ).result(timeout=5)
+        except Exception as err:
+            _LOGGER.warning("Failed to persist renewed Aula tokens: %s", err)
+
     def login(self, force_refresh=False):
         """Authenticate with Aula using MitID OAuth 2.0 flow."""
         _LOGGER.info("Starting MitID authentication")
@@ -721,22 +744,9 @@ class Client:
                     self._apply_token_to_session(self._tokens["access_token"])
                     _LOGGER.info("Token refreshed successfully")
 
-                    # Persist refreshed tokens to runtime storage (non-blocking)
-                    # Note: entry.data is only updated during reauth flows (handled in config_flow.py)
-                    if self._hass and self._config_entry:
-                        from . import async_update_tokens
-
-                        try:
-                            # Schedule as background task, don't block
-                            asyncio.run_coroutine_threadsafe(
-                                async_update_tokens(
-                                    self._hass, self._config_entry, self._tokens
-                                ),
-                                self._hass.loop,
-                            ).result(timeout=5)
-                            _LOGGER.debug("Refreshed tokens persisted to config entry")
-                        except Exception as e:
-                            _LOGGER.warning(f"Failed to schedule token persistence: {e}")
+                    # The server rotates the refresh token on every renewal, so
+                    # write the new set back to the config entry.
+                    self._persist_tokens()
 
                     return self._verify_api_access()
                 else:
@@ -755,6 +765,7 @@ class Client:
             # Store new tokens
             self._tokens = auth_result["tokens"]
             self._apply_token_to_session(self._tokens["access_token"])
+            self._persist_tokens()
 
             # Verify API access
             return self._verify_api_access()
@@ -1361,23 +1372,9 @@ class Client:
                     self._apply_token_to_session(self._tokens["access_token"])
                     _LOGGER.info("Token refreshed successfully")
 
-                    # Persist refreshed tokens to runtime storage (non-blocking)
-                    # This does NOT update entry.data, so no reload is triggered
-                    if self._hass and self._config_entry:
-                        from . import async_update_tokens
-
-                        try:
-                            asyncio.run_coroutine_threadsafe(
-                                async_update_tokens(
-                                    self._hass, self._config_entry, self._tokens
-                                ),
-                                self._hass.loop,
-                            ).result(timeout=5)
-                            _LOGGER.debug("Refreshed tokens persisted to config entry")
-                        except Exception as e:
-                            # Log error but don't fail - token refresh succeeded,
-                            # persistence failure is non-critical
-                            _LOGGER.warning(f"Failed to schedule token persistence: {e}")
+                    # The server rotates the refresh token on every renewal, so
+                    # write the new set back to the config entry.
+                    self._persist_tokens()
 
                     return True
                 else:
