@@ -4,6 +4,23 @@
 
 This is a custom component for Home Assistant to integrate Aula.
 
+## Local Min Uddannelse extension
+
+This working copy combines the official **v0.1.73** release (7 November 2026)
+with the local Min Uddannelse assignment-description extension. Descriptions
+are fetched for the entire current and next ISO week, without a weekday filter,
+and matched by pupil and assignment ID. The existing HTML attributes and
+structured `mu_opgaver_data` / `mu_opgaver_next_data` attributes are retained.
+The release also adds assignment completion status to the HTML output.
+
+Back up the installed Aula folder before deployment, then copy the complete
+`custom_components\aula` folder to the matching folder in the HA test system
+and restart Home Assistant. Do not mix individual files from different releases.
+A normal HACS update can overwrite this local extension.
+See [AS-IS](docs/AS-IS.md) and [STATUS](docs/STATUS.md) for scope and verification.
+
+## Features
+
 - Installable and updatable via HACS
 - UI config flow
 - School schedules as Home Assistant calendars
@@ -60,6 +77,12 @@ cards:
    ![image](https://user-images.githubusercontent.com/8055470/199254249-3bf441bc-7dce-4f5d-a809-d119d20a7b2b.png)
 
 - Lots of small fixes and optimizations
+
+## Local project documentation
+
+- [As-is functionality and architecture (Danish)](docs/AS-IS.md)
+- [Current status, approvals and open questions (Danish)](docs/STATUS.md)
+- [Development environment and tests (Danish)](docs/DEVELOPMENT.md)
 
 ## Installation
 
