@@ -24,18 +24,6 @@ from .client import Client
 
 _LOGGER = logging.getLogger(__name__)
 
-# Keys in entry.data that hold the rotating OAuth token set. They are rewritten on
-# every token renewal and must never trigger a config entry reload.
-TOKEN_KEYS = (CONF_ACCESS_TOKEN, CONF_REFRESH_TOKEN, CONF_TOKEN_EXPIRES_AT)
-
-
-def _settings_snapshot(entry: config_entries.ConfigEntry) -> dict:
-    """Return the part of a config entry that requires a reload when changed."""
-    return {
-        "data": {k: v for k, v in entry.data.items() if k not in TOKEN_KEYS},
-        "options": dict(entry.options),
-    }
-
 
 async def async_setup_entry(
     hass: core.HomeAssistant, entry: config_entries.ConfigEntry
@@ -79,11 +67,11 @@ async def async_setup_entry(
     hass_data[CONF_MITID_IDENTITY] = mitid_identity
     hass_data["stored_tokens"] = stored_tokens
 
-    # Snapshot of everything except the tokens. options_update_listener compares
-    # against it so that persisting a renewed token does not reload the entry.
-    # Must be in place before the entry is published to hass.data, because the
-    # first token renewal can happen inside client.login() below.
-    hass_data["settings_snapshot"] = _settings_snapshot(entry)
+    # Store tokens in runtime storage (not entry.data) to avoid triggering reload cycles
+    # Tokens in entry.data are only for HA restart recovery and reauth flows
+    if stored_tokens:
+        hass_data["tokens"] = stored_tokens.copy()
+        _LOGGER.debug("Tokens stored in runtime storage for active use")
 
     # Registers update listener to update config entry when options are updated.
     unsub_options_update_listener = entry.add_update_listener(options_update_listener)
@@ -152,62 +140,33 @@ def _calendar_enabled(data):
 
 async def async_update_tokens(
     hass: core.HomeAssistant, entry: config_entries.ConfigEntry, tokens: dict
-) -> None:
-    """Persist a renewed token set to the config entry.
+):
+    """Update tokens in runtime storage only.
 
-    Aula rotates the refresh token on every renewal, so the rotated token has to be
-    written back. Otherwise every restart falls back to the token captured at the
-    last interactive MitID login, which the server expires after a couple of months
-    and which then forces a manual re-authentication.
+    This function updates tokens in runtime storage (hass.data) which does NOT
+    trigger config entry reload cycles. Tokens in entry.data are only updated
+    during reauth flows (user-initiated), which is handled in config_flow.py.
 
-    Runs on the event loop; called from executor threads through
-    asyncio.run_coroutine_threadsafe(). Writing entry.data fires the update
-    listeners, but options_update_listener ignores token-only changes, so this does
-    not reload the entry - not even when it is called from inside async_setup_entry's
-    own client.login().
+    Args:
+        hass: Home Assistant instance
+        entry: Config entry
+        tokens: Dictionary containing refreshed tokens
     """
-    access_token = tokens.get("access_token")
-    refresh_token = tokens.get("refresh_token")
-    if not access_token or not refresh_token:
-        _LOGGER.debug("Not persisting an incomplete token set")
-        return
-
-    if hass.config_entries.async_get_entry(entry.entry_id) is None:
-        # Entry was removed while the refresh was in flight.
-        _LOGGER.debug("Config entry is gone, not persisting tokens")
-        return
-
-    # async_update_entry is a no-op (and fires no listeners) when nothing changed.
-    hass.config_entries.async_update_entry(
-        entry,
-        data={
-            **entry.data,
-            CONF_ACCESS_TOKEN: access_token,
-            CONF_REFRESH_TOKEN: refresh_token,
-            CONF_TOKEN_EXPIRES_AT: tokens.get("expires_at", 0),
-        },
-    )
-    _LOGGER.debug("Renewed Aula tokens persisted to the config entry")
+    # Update runtime storage only - this does NOT trigger reload cycles
+    if entry.entry_id in hass.data.get(DOMAIN, {}):
+        hass.data[DOMAIN][entry.entry_id]["tokens"] = tokens.copy()
+        _LOGGER.debug("Tokens updated in runtime storage (no reload triggered)")
+    else:
+        _LOGGER.warning(
+            f"Runtime storage not available for entry {entry.entry_id}, "
+            "cannot update tokens in runtime storage"
+        )
 
 
 async def options_update_listener(
     hass: core.HomeAssistant, config_entry: config_entries.ConfigEntry
 ):
-    """Reload the entry when its configuration changed.
-
-    entry.data also carries the OAuth tokens, which are rewritten on every renewal
-    (async_update_tokens). Reloading on those would tear the entry down from inside
-    its own setup - the very case a renewal at startup hits - and would re-run
-    login() on every renewal. Compare against the snapshot taken in
-    async_setup_entry and skip token-only updates.
-    """
-    entry_data = hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
-    if entry_data is not None and entry_data.get("settings_snapshot") == (
-        _settings_snapshot(config_entry)
-    ):
-        _LOGGER.debug("Config entry update was tokens only, not reloading")
-        return
-
+    """Handle options update."""
     await hass.config_entries.async_reload(config_entry.entry_id)
 
 

@@ -198,6 +198,12 @@ class AulaSensor(Entity):
         # _LOGGER.debug("Dump of ugep_attr: "+str(self._client.ugep_attr))
         # _LOGGER.debug("Dump of ugepnext_attr: "+str(self._client.ugepnext_attr))
         if mu_opgaver:
+            attributes["mu_opgaver_data"] = self._client.mu_opgaver_data_attr.get(
+                str(self._child["id"]), []
+            )
+            attributes["mu_opgaver_next_data"] = self._client.mu_opgaver_next_data_attr.get(
+                str(self._child["id"]), []
+            )
             #
             try:
                 attributes["mu_opgaver"] = self._client.mu_opgaver_attr[
