@@ -90,6 +90,47 @@ def calendar_date_chunks(start, days, max_span=CALENDAR_MAX_SPAN_DAYS):
     return chunks
 
 
+def mu_opgave_content(opgave):
+    """Return supported text content as HTML, or an empty string."""
+    content = opgave.get("indhold")
+    if not content or opgave.get("indholdsType", "text") != "text":
+        return ""
+    if isinstance(content, str):
+        try:
+            content = json.loads(content)
+        except json.JSONDecodeError:
+            _LOGGER.warning("Could not decode Min Uddannelse assignment content as JSON")
+            return ""
+    if not isinstance(content, dict) or not isinstance(content.get("text"), str):
+        _LOGGER.warning("Unexpected Min Uddannelse assignment content format")
+        return ""
+    return content["text"] if content["text"].strip() else ""
+
+
+def mu_opgaver_data(opgaver, child_name):
+    """Return automation-friendly assignments for one child's full name."""
+    result = []
+    for opgave in opgaver:
+        if opgave.get("kuvertnavn", "").split() != child_name.split():
+            continue
+        content = mu_opgave_content(opgave)
+        soup = BeautifulSoup(content, "html.parser")
+        for tag in soup(["script", "style"]):
+            tag.decompose()
+        result.append({
+            "id": opgave.get("id"),
+            "titel": opgave["title"],
+            "dato": opgave.get("afleveringsdato"),
+            "ugedag": opgave.get("ugedag"),
+            "fag": [
+                hold.get("fagNavn") or hold.get("navn", "")
+                for hold in opgave.get("hold", [])
+            ],
+            "indhold": soup.get_text(" ", strip=True),
+        })
+    return result
+
+
 def format_mu_opgaver(opgaver, first_name):
     """Render one child's opgaver as the HTML used for the sensor attribute."""
     _ugep = ""
@@ -112,6 +153,9 @@ def format_mu_opgaver(opgaver, first_name):
             _ugep = _ugep + "Forløb: " + opgave["forloeb"]["navn"]
         except (KeyError, TypeError):
             _LOGGER.debug("Did not find forloeb key: " + str(opgave))
+        content = mu_opgave_content(opgave)
+        if content:
+            _ugep = _ugep + "<br>" + content + "<br>"
     return _ugep
 
 
@@ -429,6 +473,171 @@ class Client:
         self._session = None
         self.unread_messages = unread_messages
         self.easyiq_login_ids = {}
+        self._mu_session = requests.Session()
+        self.mu_opgaver_data_attr = {}
+        self.mu_opgaver_next_data_attr = {}
+
+    def _get_mu_web_opgaver(self, pupil_id, week):
+        """Read the entire ISO week's descriptions, without a weekday filter."""
+        with self._mu_session.get(
+            "https://www.minuddannelse.net/api/forloebsafvikling/opgaver/getOpgaveliste",
+            params={"tidspunkt": week, "elevId": pupil_id},
+            headers={
+                "Accept": "application/json",
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            timeout=20,
+            allow_redirects=False,
+        ) as response:
+            if response.status_code in (301, 302, 303, 307, 308, 401, 403):
+                return None
+            response.raise_for_status()
+            if response.text.strip().strip('"') == "Unauthorized":
+                return None
+            if response.text.lstrip().lower().startswith(("<!doctype html", "<html")):
+                return None
+            data = response.json()
+            if not isinstance(data, dict) or not isinstance(data.get("opgaver"), list):
+                raise ValueError("Unexpected MU web assignment response")
+            if not all(isinstance(item, dict) for item in data["opgaver"]):
+                raise ValueError("Unexpected MU web assignment item")
+            return data["opgaver"]
+
+    def _open_mu_web_session(self, login_url, widget, guardian):
+        """Exchange the widget token for cookies without forwarding credentials."""
+        token = self.get_token(widget)
+        if not token:
+            raise ValueError("No MU widget token available")
+        params = {
+            "assuranceLevel": "2",
+            "childFilter": ",".join(self._childuserids),
+            "isMobileApp": "false",
+            "placement": "narrow",
+            "sessionUUID": guardian,
+            "userProfile": "guardian",
+        }
+        url = login_url
+        for hop in range(7):
+            parsed = urllib.parse.urlsplit(url)
+            valid_host = parsed.hostname in (
+                "api.minuddannelse.net",
+                "www.minuddannelse.net",
+                "minuddannelse.net",
+            )
+            if (
+                parsed.scheme != "https"
+                or not valid_host
+                or parsed.port not in (None, 443)
+                or parsed.username is not None
+                or parsed.password is not None
+            ):
+                raise ValueError("Unexpected MU login redirect destination")
+            with self._mu_session.get(
+                url,
+                params=params if hop == 0 else None,
+                headers={"Authorization": token} if hop == 0 else {},
+                timeout=20,
+                allow_redirects=False,
+            ) as response:
+                if response.status_code in (301, 302, 303, 307, 308):
+                    location = response.headers.get("Location")
+                    if not location:
+                        raise ValueError("MU login redirect has no destination")
+                    url = urllib.parse.urljoin(response.url, location)
+                    continue
+                response.raise_for_status()
+                if response.status_code != 200:
+                    raise ValueError("Unexpected MU login response")
+                return
+        raise ValueError("Too many MU login redirects")
+
+    def _enrich_mu_opgaver(self, opgaver, week, widget, guardian):
+        """Add web descriptions by pupil and assignment ID, keeping widget metadata."""
+        pupils = {}
+        for opgave in opgaver:
+            redirect_url = opgave.get("url")
+            if not isinstance(redirect_url, str):
+                continue
+            redirect = urllib.parse.urlsplit(redirect_url)
+            if (
+                redirect.scheme != "https"
+                or redirect.netloc != "api.minuddannelse.net"
+                or not redirect.path.startswith("/aula/redirect/")
+                or redirect.query
+                or redirect.fragment
+            ):
+                continue
+            target = decode_mu_deeplink(redirect_url)
+            if not target:
+                continue
+            parsed = urllib.parse.urlsplit(target)
+            match = re.fullmatch(r"/Node/minuge/([0-9]+)/?", parsed.path)
+            if (
+                parsed.scheme != "https"
+                or parsed.netloc != "www.minuddannelse.net"
+                or not match
+            ):
+                continue
+            pupil_id = match.group(1)
+            if pupil_id not in pupils:
+                pupils[pupil_id] = (redirect_url, [])
+            pupils[pupil_id][1].append(opgave)
+
+        if opgaver and not pupils:
+            _LOGGER.warning(
+                "MU assignment descriptions unavailable: no supported pupil links"
+            )
+            return
+
+        login_attempted = False
+        for pupil_id, (login_url, assignments) in pupils.items():
+            stage = "reading web assignments"
+            try:
+                details = self._get_mu_web_opgaver(pupil_id, week)
+                if details is None and not login_attempted:
+                    login_attempted = True
+                    stage = "opening MU SSO session"
+                    self._open_mu_web_session(login_url, widget, guardian)
+                    stage = "reading web assignments after SSO"
+                    details = self._get_mu_web_opgaver(pupil_id, week)
+                if details is None:
+                    raise ValueError("MU web session is not authenticated")
+                by_id = {
+                    item["id"].replace("-", "").lower(): item
+                    for item in details
+                    if isinstance(item.get("id"), str)
+                }
+                matched = 0
+                for assignment in assignments:
+                    assignment_id = assignment.get("id")
+                    if not isinstance(assignment_id, str):
+                        continue
+                    detail = by_id.get(assignment_id.replace("-", "").lower())
+                    if detail is None or "indhold" not in detail:
+                        continue
+                    assignment["indhold"] = detail["indhold"]
+                    assignment["indholdsType"] = detail.get("indholdsType", "text")
+                    matched += 1
+                if matched < len(assignments):
+                    _LOGGER.warning(
+                        "MU descriptions matched %s of %s assignments for one pupil (%s)",
+                        matched,
+                        len(assignments),
+                        week,
+                    )
+                else:
+                    _LOGGER.debug(
+                        "MU descriptions matched %s assignments (%s)", matched, week
+                    )
+            except (requests.RequestException, ValueError) as err:
+                # Request exceptions may contain credential-bearing redirect URLs.
+                _LOGGER.warning(
+                    "Could not fetch MU assignment descriptions (%s, %s, %s); "
+                    "keeping assignment metadata",
+                    week,
+                    stage,
+                    type(err).__name__,
+                )
 
     def _get_access_token_param(self):
         if self._tokens and "access_token" in self._tokens:
@@ -1465,19 +1674,26 @@ class Client:
                     _LOGGER.debug("MU Opgaver response " + str(mu_opgaver.text))
                     mu_opgaver_json = mu_opgaver.json()
                     opgaver_list = mu_opgaver_json.get("opgaver", []) if mu_opgaver_json else []
+                    self._enrich_mu_opgaver(opgaver_list, week, mu_widget, guardian)
                     for full_name in self._childnames.items():
                         name_parts = full_name[1].split()
                         first_name = name_parts[0]
                         _ugep = format_mu_opgaver(opgaver_list, first_name)
                         if thisnext == "this":
                             self.mu_opgaver_attr[first_name] = _ugep
+                            self.mu_opgaver_data_attr[str(full_name[0])] = mu_opgaver_data(
+                                opgaver_list, full_name[1]
+                            )
                         elif thisnext == "next":
                             self.mu_opgaver_next_attr[first_name] = _ugep
+                            self.mu_opgaver_next_data_attr[str(full_name[0])] = mu_opgaver_data(
+                                opgaver_list, full_name[1]
+                            )
                         _LOGGER.debug("MU Opgaver result: " + str(_ugep))
 
-            now = datetime.datetime.now() + datetime.timedelta(weeks=1)
-            thisweek = datetime.datetime.now().strftime("%Y-W%V")
-            nextweek = now.strftime("%Y-W%V")
+            now = dt_util.now()
+            thisweek = now.strftime("%G-W%V")
+            nextweek = (now + datetime.timedelta(weeks=1)).strftime("%G-W%V")
             mu_opgaver(thisweek, "this")
             mu_opgaver(nextweek, "next")
         # End of MU Opgaver

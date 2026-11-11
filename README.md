@@ -9,7 +9,7 @@ This is a custom component for Home Assistant to integrate Aula.
 - School schedules as Home Assistant calendars
 - Booked meetings (skole-hjem-samtaler, forældresamtaler) as Home Assistant calendars (opt-in)
 - "Ugeplaner/Ugenoter" from "Min Uddannelse", "Meebook", "EasyIQ" and "Docendo"
-- "Opgaver" from "Min Uddannelse"
+- "Opgaver" from "Min Uddannelse", including the assignment notes/descriptions (`indhold`). The sensor exposes them as HTML in `mu_opgaver` / `mu_opgaver_next` and as structured lists in `mu_opgaver_data` / `mu_opgaver_next_data` (`id`, `titel`, `dato`, `ugedag`, `fag`, `indhold`). Notes are fetched from the Min Uddannelse web API for the current and next ISO week; if that fails, the assignments are still shown without notes.
 - Messages - if there are unread messages, we turn a binary sensor on and populate it with the message details.
 - "Huskelisten" from "Systematic"
 - Use the builtin service to interact directly with Aulas API.
