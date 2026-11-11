@@ -1234,7 +1234,12 @@ class AulaLoginClient:
         return {"valid": False, "reason": "Unable to decode token"}
 
     def renew_access_token(self) -> bool:
-        """Renew the access token using the refresh token"""
+        """Renew the access token using the refresh token.
+
+        Returns False when the server rejects the refresh token. Raises
+        NetworkError when the login server can't be reached or fails (5xx),
+        since the refresh token may still be valid then.
+        """
         if not self.tokens or "refresh_token" not in self.tokens:
             self.log("No refresh token available for renewal", "ERROR")
             return False
@@ -1280,6 +1285,12 @@ class AulaLoginClient:
                     f" Token renewed successfully! Expires in: {token_response.get('expires_in', 'unknown')} seconds"
                 )
                 return True
+            elif response.status_code >= 500:
+                # The login server is having trouble; the refresh token was
+                # not rejected and is still worth retrying later.
+                raise NetworkError(
+                    f"Token renewal failed: login server returned {response.status_code}"
+                )
             else:
                 self.log(
                     f" Token renewal failed: {response.status_code} - {response.text}",
@@ -1287,6 +1298,12 @@ class AulaLoginClient:
                 )
                 return False
 
+        except NetworkError:
+            raise
+        except requests.RequestException as e:
+            # Timeouts and connection errors say nothing about the refresh
+            # token, so report them as such instead of as a failed renewal.
+            raise NetworkError(f"Token renewal failed: {str(e)}") from e
         except Exception as e:
             self.log(f" Token renewal exception: {str(e)}", "ERROR")
             return False

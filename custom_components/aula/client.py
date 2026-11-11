@@ -29,7 +29,7 @@ from homeassistant.exceptions import ConfigEntryNotReady, ConfigEntryAuthFailed
 from homeassistant.components.calendar import CalendarEvent
 from homeassistant.util import dt as dt_util
 from .aula_login_client.client import AulaLoginClient
-from .aula_login_client.exceptions import AulaAuthenticationError
+from .aula_login_client.exceptions import AulaAuthenticationError, NetworkError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -772,6 +772,10 @@ class Client:
 
         except ConfigEntryAuthFailed:
             raise
+        except NetworkError as e:
+            # Not an auth failure: keep the tokens and let Home Assistant retry.
+            _LOGGER.warning(f"Aula login server unreachable: {e}")
+            raise ConfigEntryNotReady(f"Aula login server unreachable: {e}") from e
         except Exception as e:
             _LOGGER.error(f"Login failed: {str(e)}")
             raise ConfigEntryNotReady(f"Login failed: {str(e)}")
@@ -1386,6 +1390,11 @@ class Client:
                         _LOGGER.error(f"Re-authentication failed: {e}")
                         # Don't raise - let coordinator handle gracefully
                         return False
+            except NetworkError as e:
+                # Re-authenticating would hit the same server; the refresh
+                # token is kept and the next attempt retries the renewal.
+                _LOGGER.warning(f"Aula login server unreachable, will retry: {e}")
+                return False
             except Exception as e:
                 _LOGGER.error(f"Token refresh error: {e}, attempting re-authentication...")
                 try:

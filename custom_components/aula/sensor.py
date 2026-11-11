@@ -2,7 +2,8 @@ from .const import DOMAIN
 import logging
 from datetime import datetime, timedelta
 from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant import config_entries, core
 from homeassistant.helpers import entity_platform
 
@@ -60,7 +61,12 @@ async def async_setup_entry(
     client = hass.data[DOMAIN]["client"]
 
     async def async_update_data():
-        await hass.async_add_executor_job(client.update_data)
+        try:
+            await hass.async_add_executor_job(client.update_data)
+        except ConfigEntryNotReady as err:
+            # e.g. the login server is unreachable: retry on the next update
+            # instead of logging it as an unexpected error.
+            raise UpdateFailed(str(err)) from err
 
     coordinator = DataUpdateCoordinator(
         hass,
