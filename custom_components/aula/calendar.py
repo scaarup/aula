@@ -374,7 +374,7 @@ class CalendarData:
         events = []
         _LOGGER.debug("Parsing skoleskema.json...")
         for c in data["data"]:
-            if c["type"] == "lesson" and c["belongsToProfiles"][0] == self._childid:
+            if c["type"] == "lesson" and self._childid in c["belongsToProfiles"]:
                 event = parseCalendarLesson(c, self._teacher_name_display, self._show_emoji)
                 events.append(event)
         return events
