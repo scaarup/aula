@@ -1838,6 +1838,7 @@ class Client:
                         events_list = []
                         skoleportal_success = False
                         skoleportal_auth_response = False
+                        week_plan_text = ""
 
                         try:
                             # 1. Access UgeplanWidget page to initialize session
@@ -1897,6 +1898,29 @@ class Client:
                                 }
                                 if activity_filter:
                                     params["activityFilter"] = str(activity_filter)
+ 
+                                try:
+                                    week_plan_resp = easyiq_session.get(
+                                        EASYIQ_SKOLEPORTAL_API + "/Calendar/WeekPlan",
+                                        headers=easyiq_headers,
+                                        params=params,
+                                        verify=True,
+                                        timeout=10,
+                                        allow_redirects=False,
+                                    )
+                                    week_plan_resp.raise_for_status()
+                                    if week_plan_resp.status_code == 200:
+                                        data = week_plan_resp.json()
+                                        plans = data.get("WeekPlans") if isinstance(data, dict) else None
+                                        if isinstance(plans, list):
+                                            for plan in plans:
+                                                if not isinstance(plan, dict) or plan.get("IsVisible") is False:
+                                                    continue
+                                                text = sanitize_html(plan.get("Text"))
+                                                if text:
+                                                    week_plan_text += text + "<br>"
+                                except (requests.RequestException, ValueError):
+                                    _LOGGER.warning("Could not fetch EasyIQ general weekly text")
 
                                 events_resp = easyiq_session.get(
                                     EASYIQ_SKOLEPORTAL_API + "/Calendar/CalendarGetWeekplanEvents",
@@ -1932,6 +1956,8 @@ class Client:
                         if skoleportal_success:
                             week_num_str = week.split("-W")[-1] if "-W" in week else week
                             _ugep = f"<h2>Uge {week_num_str}</h2>"
+                            if week_plan_text:
+                                _ugep += f"<h3>Generelt om ugen</h3>{week_plan_text}"
 
                             events_by_day = {}
                             important_notes = []
