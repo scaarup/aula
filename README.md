@@ -114,6 +114,11 @@ class shown in Aula (e.g. "4I"), ignoring case, spaces and punctuation. With one
 unmatched plan is still shown; with several children, a plan that matches none of their
 classes is skipped (logged at debug level). Docendo plans are refreshed every 30 minutes.
 
+**EasyIQ "Generelt om ugen":** On EasyIQ SkolePortal (widget 0128), the teachers' weekly
+letter ("Generelt om ugen") is put at the top of `ugeplan` / `ugeplan_next` under its own
+heading. It is also added to the "Ugeplan <name>" calendar as an all-day event, Monday to
+Friday, with the letter as plain text in the description. Weeks without a letter are unchanged.
+
 > Ugeplaner are read through the same unofficial widget endpoints that Aula's own web
 > page uses, and can change without notice. If an update breaks them, you can go back to
 > the previous version in HACS (Aula → ⋮ → Redownload → pick the version).
