@@ -370,6 +370,45 @@ def docendo_calendar_events(plans):
     return events
 
 
+def parse_easyiq_weekly_letter(payload):
+    """Return (html, text) for EasyIQ SkolePortal's "Generelt om ugen" weekly letter.
+
+    The payload comes from GET /Calendar/WeekPlan. Its shape is
+    {"Show", "Text", "IsVisible", "Beskrivelse", "WeekPlans": [{"ActivityName", "Text",
+    "IsVisible", "Beskrivelse"}, ...]}. Text is HTML. Only visible, non-empty texts are used.
+    Returns (None, None) when there is no letter.
+    """
+    if not isinstance(payload, dict):
+        return None, None
+    parts = []
+
+    def _add(item):
+        if not isinstance(item, dict):
+            return
+        visible = item.get("IsVisible", True)
+        if isinstance(visible, str):
+            visible = visible.strip().lower() in ("true", "1", "yes")
+        text = (item.get("Text") or "").strip()
+        if visible and text:
+            parts.append(text)
+
+    _add(payload)
+    for week_plan in payload.get("WeekPlans") or []:
+        _add(week_plan)
+    if not parts:
+        return None, None
+    plain = []
+    for part in parts:
+        soup = BeautifulSoup(part, "html.parser")
+        for br in soup.find_all("br"):
+            br.replace_with("\n")
+        lines = [p.get_text().replace("\xa0", " ").strip() for p in soup.find_all(["p", "li", "div"])] or [
+            soup.get_text().replace("\xa0", " ").strip()
+        ]
+        plain.append("\n".join(line for line in lines if line))
+    return "".join(parts), "\n\n".join(p for p in plain if p) or None
+
+
 def is_ugeplan_all_day(value):
     if isinstance(value, bool):
         return value
@@ -1845,6 +1884,8 @@ class Client:
                         login_id = None
                         activity_filter = None
                         events_list = []
+                        weekly_letter_html = None
+                        weekly_letter_text = None
                         skoleportal_success = False
                         skoleportal_auth_response = False
 
@@ -1935,12 +1976,34 @@ class Client:
                                         _LOGGER.debug("Could not parse events JSON for %s: %s (text: %r)", first_name, json_e, events_resp.text[:200])
                                 else:
                                     _LOGGER.debug("EasyIQ Skoleportal returned non-200 response for %s: %r", first_name, events_resp.text[:200])
+
+                                # 4. "Generelt om ugen": the teachers' weekly letter, a separate call.
+                                try:
+                                    letter_resp = easyiq_session.get(
+                                        EASYIQ_SKOLEPORTAL_API + "/Calendar/WeekPlan",
+                                        headers=easyiq_headers,
+                                        params={
+                                            "loginId": str(login_id),
+                                            "activityFilter": "",
+                                            "date": target_date,
+                                        },
+                                        verify=True,
+                                        timeout=10,
+                                    )
+                                    if letter_resp.status_code == 200:
+                                        weekly_letter_html, weekly_letter_text = parse_easyiq_weekly_letter(letter_resp.json())
+                                    else:
+                                        _LOGGER.debug("EasyIQ weekly letter returned %s for %s", letter_resp.status_code, first_name)
+                                except Exception as letter_e:
+                                    _LOGGER.debug("Could not fetch EasyIQ weekly letter for %s: %s", first_name, letter_e)
                         except Exception as err:
                             _LOGGER.warning("EasyIQ Skoleportal API call failed for %s: %s", first_name, err)
 
                         if skoleportal_success:
                             week_num_str = week.split("-W")[-1] if "-W" in week else week
                             _ugep = f"<h2>Uge {week_num_str}</h2>"
+                            if weekly_letter_html:
+                                _ugep += f"<h3>Generelt om ugen</h3>{weekly_letter_html}"
 
                             events_by_day = {}
                             important_notes = []
@@ -2073,6 +2136,20 @@ class Client:
                                         start=ev_start,
                                         end=ev_end,
                                         description=item_desc or None,
+                                    )
+                                )
+                            if weekly_letter_text:
+                                try:
+                                    y, w = week.split("-W")
+                                    letter_monday = datetime.date.fromisocalendar(int(y), int(w), 1)
+                                except Exception:
+                                    letter_monday = datetime.date.today()
+                                self.ugep_events[first_name].append(
+                                    CalendarEvent(
+                                        summary="Generelt om ugen",
+                                        start=letter_monday,
+                                        end=letter_monday + datetime.timedelta(days=5),
+                                        description=weekly_letter_text,
                                     )
                                 )
                             _LOGGER.debug("EasyIQ Skoleportal result for %s: %s", first_name, _ugep)
