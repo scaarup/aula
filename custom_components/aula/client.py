@@ -2401,8 +2401,8 @@ class Client:
                                 self.ugepnext_attr[name] = ugep
 
             now = datetime.datetime.now() + datetime.timedelta(weeks=1)
-            thisweek = datetime.datetime.now().strftime("%Y-W%V")
-            nextweek = now.strftime("%Y-W%V")
+            thisweek = datetime.datetime.now().strftime("%G-W%V")
+            nextweek = now.strftime("%G-W%V")
             ugeplan(thisweek, "this")
             ugeplan(nextweek, "next")
             if DOCENDO_WIDGET in self.widgets:
