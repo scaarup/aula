@@ -2,6 +2,7 @@ import logging
 import time
 
 from bs4 import BeautifulSoup
+from .widget_auth import widget_guardian
 
 _LOGGER = logging.getLogger(__name__)
 from .const import (
@@ -23,85 +24,64 @@ class MinUddannelse:
     def forloeb(
         self, session, token, week, childuserids, institutionProfiles, username
     ):
-        _LOGGER.debug("Getting Min Uddannelse Forløb")
-
+        # Use the guardian subject from the current widget token, as Aula does.
         response = session.get(
-            MIN_UDDANNELSE_API
-            + "/forloeb?"
-            + "assuranceLevel=2"
-            + "&childFilter="
-            + ",".join(childuserids)
-            + "&currentWeekNumber="
-            + week
-            + "&institutionFilter="
-            + ",".join(institutionProfiles)
-            + "&isMobileApp=false"
-            + "&placement=full"
-            + "&sessionUUID="
-            + username
-            + "&userProfile=guardian",
-            headers={"Authorization": token, "accept": "application/json"},
-            verify=True,
-        )
-        if response.status_code != 200:
-            _LOGGER.warning(
-                f"MinUddannelse forloeb API returned status {response.status_code}"
-            )
-            return {}
-        children = response.json()["personer"]
-
-        header = {
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Origin": "https://www.aula.dk",
-            "Referer": "https://www.aula.dk/",
-            # "Sec-Fetch-Dest": "document",
-            # "Sec-Fetch-Mode": "navigate",
-            # "Sec-Fetch-Site": "cross-site",
-            "Authorization": token,
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2.1 Safari/605.1.15",
-        }
-
-        forloeb = {}
-
-        for child in children:
-            data = {
+            MIN_UDDANNELSE_API + "/forloeb",
+            params={
+                "assuranceLevel": 2,
                 "childFilter": ",".join(childuserids),
                 "currentWeekNumber": week,
-                "group": "",
-                "assuranceLevel": "2",
                 "institutionFilter": ",".join(institutionProfiles),
                 "isMobileApp": "false",
-                "placement": "narrow",
-                "sessionUUID": username,
+                "placement": "full",
+                "sessionUUID": widget_guardian(token),
                 "userProfile": "guardian",
-            }
-
-            # Only take the first normally there are only one
-            for task in child["institutioner"][0]["forloeb"]:
-                # Get description from MinUddannelse
-                task_description_page = session.post(
-                    task["url"], data=data, headers=header, allow_redirects=True
-                )
-
-                _html = BeautifulSoup(task_description_page.text, "lxml")
-                task_description = _html.find(
-                    "div", {"class": "text-user fr-view"}
-                ).get_text()
-
-                # Add entry
-                entry = {
-                    "Name": task["navn"],
-                    "Url": task["url"],
-                    "Description": task_description,
-                }
-
-                if child["navn"] not in forloeb:
-                    forloeb[child["navn"]] = []
-
-                forloeb[child["navn"]].append(entry)
-
-        return forloeb
+            },
+            headers={"Authorization": token, "accept": "application/json"},
+            timeout=15,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict) or not isinstance(payload.get("personer"), list):
+            raise ValueError("Missing MinUddannelse persons list")
+        result = {}
+        for child in payload["personer"]:
+            courses = result.setdefault(child["navn"], [])
+            for institution in child.get("institutioner") or []:
+                for course in institution.get("forloeb") or []:
+                    entry = {"Name": course["navn"], "Url": course.get("url") or "", "Description": ""}
+                    # Preserve course descriptions from the existing integration.
+                    # Missing/failed detail pages must not hide the course title.
+                    if entry["Url"]:
+                        try:
+                            detail = session.post(
+                                entry["Url"],
+                                data={
+                                    "childFilter": ",".join(childuserids),
+                                    "currentWeekNumber": week,
+                                    "group": "",
+                                    "assuranceLevel": "2",
+                                    "institutionFilter": ",".join(institutionProfiles),
+                                    "isMobileApp": "false",
+                                    "placement": "narrow",
+                                    "sessionUUID": widget_guardian(token),
+                                    "userProfile": "guardian",
+                                },
+                                headers={"Authorization": token,
+                                         "Origin": "https://www.aula.dk",
+                                         "Referer": "https://www.aula.dk/"},
+                                allow_redirects=True, timeout=15,
+                            )
+                            detail.raise_for_status()
+                            description = BeautifulSoup(detail.text, "lxml").find(
+                                "div", {"class": "text-user fr-view"})
+                            if description:
+                                entry["Description"] = description.get_text()
+                        except Exception as err:
+                            _LOGGER.debug("Course description unavailable (%s)", type(err).__name__)
+                    if entry not in courses:
+                        courses.append(entry)
+        return result
 
     def ugeBrev(
         self, session, token, week, childuserids, institutionProfiles, username

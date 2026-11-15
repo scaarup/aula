@@ -44,7 +44,7 @@ class AulaEducationSensor(Entity):
             attributes["course_this_week"] = "Not available"
 
         try:
-            attributes["course_next_week"] = self._client.forloebthisweek[
+            attributes["course_next_week"] = self._client.forloebnext[
                 self._child["name"]
             ]
         except (KeyError, TypeError):

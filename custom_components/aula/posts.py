@@ -21,23 +21,6 @@ class PostsMixin:
             self.posts = {}
             self.posts_by_child = {}
 
-            # Build filter parameters for institution profiles
-            filter_params = ""
-            if self._institutionProfileIdsList:
-                filter_params = "&" + "&".join(
-                    [
-                        f"institutionProfileIds[]={profile_id}"
-                        for profile_id in self._institutionProfileIdsList
-                    ]
-                )
-                _LOGGER.debug(
-                    f"Using {len(self._institutionProfileIdsList)} institution profile IDs for posts"
-                )
-            else:
-                _LOGGER.debug(
-                    "No institution profile IDs available, fetching all posts"
-                )
-
             all_posts = []
 
             # Fetch multiple pages to get the last 50 posts
@@ -49,9 +32,9 @@ class PostsMixin:
                 40,
             ]:  # Fetch 5 pages of 10 posts each = 50 posts
                 try:
-                    posts_url = f"{self.apiurl}?method=posts.getAllPosts&parent=profile&index={index}&limit=10{filter_params}"
+                    posts_url = self._make_api_url("posts.getAllPosts", parent="profile", index=index, limit=10, institutionProfileIds=self._institutionProfileIdsList)
                     _LOGGER.debug(
-                        f"POSTS: Fetching page {index // 10 + 1} from: {posts_url}"
+                        f"POSTS: Fetching page {index // 10 + 1}"
                     )
 
                     response = self._session.get(posts_url, headers=self._auth_headers(), verify=True, timeout=15)
@@ -86,7 +69,7 @@ class PostsMixin:
 
                 except Exception as page_error:
                     _LOGGER.error(
-                        f"POSTS: Error fetching page at index {index}: {page_error}"
+                        f"POSTS: Error fetching page at index {index}: {type(page_error).__name__}"
                     )
                     break
 
@@ -104,7 +87,7 @@ class PostsMixin:
                 _LOGGER.warning("POSTS: No posts data found across all pages")
 
         except Exception as e:
-            _LOGGER.error(f"POSTS: Error in _get_posts: {e}", exc_info=True)
+            _LOGGER.error(f"POSTS: Error in _get_posts: {type(e).__name__}")
             self.posts = {}
             self.posts_by_child = {}
 
@@ -164,7 +147,7 @@ class PostsMixin:
             )
 
         except Exception as e:
-            _LOGGER.error(f"POSTS: Error parsing posts data: {e}", exc_info=True)
+            _LOGGER.error(f"POSTS: Error parsing posts data: {type(e).__name__}")
             self.posts = {}
             self.posts_by_child = {}
 

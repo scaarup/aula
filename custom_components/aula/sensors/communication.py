@@ -56,18 +56,13 @@ class AulaPostsSensor(Entity):
             recent_posts = []
             important_posts = []
 
-            for post in posts[:5]:  # Limit to 5 most recent for cleaner output
+            for post in posts[:10]:  # Limit to 5 most recent for cleaner output
                 try:
                     # Handle timestamp with proper timezone parsing
                     timestamp_str = post["timestamp"]
-                    if timestamp_str.endswith("Z"):
-                        timestamp_str = timestamp_str[:-1] + "+00:00"
-                    elif not timestamp_str.endswith(
-                        "+00:00"
-                    ) and not timestamp_str.endswith("00:00"):
-                        timestamp_str += "+00:00"
-
-                    post_date = datetime.fromisoformat(timestamp_str)
+                    post_date = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                    if post_date.tzinfo is None:
+                        post_date = post_date.replace(tzinfo=timezone.utc)
 
                     post_summary = {
                         "title": post["title"],
@@ -204,7 +199,7 @@ class AulaMailSensor(Entity):
             unread_count = 0
             marked_count = 0
 
-            for thread in mail_threads[:5]:  # Limit to 5 most recent for cleaner output
+            for thread in mail_threads[:10]:  # Limit to 5 most recent for cleaner output
                 try:
                     thread_summary = {
                         "subject": thread["subject"],

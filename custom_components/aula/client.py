@@ -33,6 +33,7 @@ from .minuddannelse import MinUddannelse
 from .posts import PostsMixin
 from .presence import PresenceMixin
 from .widgets import WidgetsMixin
+from .widget_auth import widget_guardian
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -235,6 +236,7 @@ class Client(WidgetsMixin, PresenceMixin, PostsMixin, MailMixin):
         self._ugeplan = ugeplan
         # Widget-based features now auto-detected from API
         self._bibliotek = None  # Auto-detected
+        self.library_available = False
         self._minUddannelseForloeb = None  # Auto-detected
         self._minUddannelseOpgaveListe = None  # Auto-detected
         self._minUddannelseUgeNote = None  # Auto-detected
@@ -748,27 +750,30 @@ class Client(WidgetsMixin, PresenceMixin, PostsMixin, MailMixin):
                     + "&coverImageHeight=160&widgetVersion=1.6"
                     + "&userProfile=guardian"
                     + "&sessionUUID="
-                    + "aula_guardian",
+                    + widget_guardian(token),
                     headers={"Authorization": token, "accept": "application/json"},
                     verify=True,
+                    timeout=30,
                 )
 
                 if response.status_code != 200:
                     _LOGGER.warning(
                         f"Library API returned status {response.status_code}"
                     )
-                    self.loaned_books = {}
+                    self.library_available = False
                 else:
                     books = response.json()
+                    if not isinstance(books, dict) or not isinstance(books.get("loans"), list):
+                        raise ValueError("Missing loans list")
 
                     self.loaned_books = {}
                     for loaned_book in books["loans"]:
                         book = {
                             "Title": loaned_book["title"],
-                            "Author": loaned_book["author"],
+                            "Author": loaned_book.get("author") or "",
                             "DueDate": loaned_book["dueDate"],
                             "NumberOfLoans": loaned_book["numberOfLoans"],
-                            "Cover": str(loaned_book["coverImageUrl"]).strip(),
+                            "Cover": str(loaned_book.get("coverImageUrl") or "").strip(),
                         }
 
                         if loaned_book["patronDisplayName"] not in self.loaned_books:
@@ -776,13 +781,14 @@ class Client(WidgetsMixin, PresenceMixin, PostsMixin, MailMixin):
 
                         self.loaned_books[loaned_book["patronDisplayName"]].append(book)
 
+                    self.library_available = True
                     _LOGGER.debug(
                         f"Library books loaded. {len(self.loaned_books)} patron(s), "
                         f"{len(self._childnames)} child(ren) registered"
                     )
             except Exception as e:
-                _LOGGER.warning(f"Failed to fetch library data: {e}")
-                self.loaned_books = {}
+                self.library_available = False
+                _LOGGER.warning("Failed to fetch library data (%s)", type(e).__name__)
 
         # End of bibliotek
 
@@ -809,8 +815,8 @@ class Client(WidgetsMixin, PresenceMixin, PostsMixin, MailMixin):
                 else:
                     token = self.get_token("0028")
                     now = datetime.datetime.now() + datetime.timedelta(weeks=1)
-                    thisweek = datetime.datetime.now().strftime("%Y-W%W")
-                    nextweek = now.strftime("%Y-W%W")
+                    thisweek = datetime.datetime.now().strftime("%G-W%V")
+                    nextweek = now.strftime("%G-W%V")
                     self.forloebthisweek = self._minUddannelse.forloeb(
                         self._session,
                         token,
@@ -851,7 +857,7 @@ class Client(WidgetsMixin, PresenceMixin, PostsMixin, MailMixin):
                     )
                 else:
                     token = self.get_token("0028")
-                    week = datetime.datetime.now().strftime("%Y-W%W")
+                    week = datetime.datetime.now().strftime("%G-W%V")
                     opgaver = self._minUddannelse.opgaveListe(
                         self._session,
                         token,
@@ -897,8 +903,8 @@ class Client(WidgetsMixin, PresenceMixin, PostsMixin, MailMixin):
                 else:
                     token = self.get_token("0028")
                     now = datetime.datetime.now() + datetime.timedelta(weeks=1)
-                    thisweek = datetime.datetime.now().strftime("%Y-W%W")
-                    nextweek = now.strftime("%Y-W%W")
+                    thisweek = datetime.datetime.now().strftime("%G-W%V")
+                    nextweek = now.strftime("%G-W%V")
 
                     try:
                         self.ugenotethisweek = self._minUddannelse.ugeBrev(
@@ -1154,8 +1160,8 @@ class Client(WidgetsMixin, PresenceMixin, PostsMixin, MailMixin):
                             self.ugepnext_attr[name] = ugep
 
             now = datetime.datetime.now() + datetime.timedelta(weeks=1)
-            thisweek = datetime.datetime.now().strftime("%Y-W%W")
-            nextweek = now.strftime("%Y-W%W")
+            thisweek = datetime.datetime.now().strftime("%G-W%V")
+            nextweek = now.strftime("%G-W%V")
             ugeplan(thisweek, "this")
             ugeplan(nextweek, "next")
         # End of Ugeplaner

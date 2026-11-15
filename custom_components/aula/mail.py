@@ -30,8 +30,8 @@ class MailMixin:
             all_threads = []
             for page in range(5):  # Fetch 5 pages of 10 threads each = 50 threads
                 try:
-                    mail_url = f"{self.apiurl}?method=messaging.getThreads&sortOn=date&orderDirection=desc&page={page}"
-                    _LOGGER.debug(f"MAIL: Fetching page {page + 1} from: {mail_url}")
+                    mail_url = self._make_api_url("messaging.getThreads", sortOn="date", orderDirection="desc", page=page)
+                    _LOGGER.debug(f"MAIL: Fetching page {page + 1}")
 
                     response = self._session.get(
                         mail_url, headers=self._auth_headers(), verify=True, timeout=15
@@ -75,7 +75,7 @@ class MailMixin:
                         break
 
                 except Exception as page_error:
-                    _LOGGER.error(f"MAIL: Error fetching page {page}: {page_error}")
+                    _LOGGER.error(f"MAIL: Error fetching page {page}: {type(page_error).__name__}")
                     break
 
             _LOGGER.info(
@@ -100,7 +100,7 @@ class MailMixin:
             )
 
         except Exception as e:
-            _LOGGER.error(f"MAIL: Error in _get_mail: {e}", exc_info=True)
+            _LOGGER.error(f"MAIL: Error in _get_mail: {type(e).__name__}")
             self.mail_threads = {}
             self.mail_by_child = {}
 
@@ -164,7 +164,7 @@ class MailMixin:
                 f"MAIL: Successfully parsed {len(self.mail_threads)} mail threads for {len(self.mail_by_child)} children"
             )
         except Exception as e:
-            _LOGGER.error(f"MAIL: Error parsing mail data: {e}", exc_info=True)
+            _LOGGER.error(f"MAIL: Error parsing mail data: {type(e).__name__}")
             self.mail_threads = {}
             self.mail_by_child = {}
 
@@ -199,7 +199,7 @@ class MailMixin:
             )
 
         except Exception as e:
-            _LOGGER.error(f"MAIL: Error creating child mapping: {e}", exc_info=True)
+            _LOGGER.error(f"MAIL: Error creating child mapping: {type(e).__name__}")
             self.mail_child_profile_mapping = {}
 
     def _get_sensor_child_id_for_profile(self, profile_id):

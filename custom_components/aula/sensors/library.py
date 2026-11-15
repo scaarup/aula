@@ -84,7 +84,7 @@ class AulaLibrarySensor(Entity):
     @property
     def extra_state_attributes(self):
         attributes = {}
-        books = self._find_books_for_child()
+        books = self._find_books_for_child() if self._client.library_available else None
         if books is not None:
             attributes["books"] = books
         else:
@@ -115,7 +115,7 @@ class AulaLibrarySensor(Entity):
 
     @property
     def available(self):
-        return self._coordinator.last_update_success
+        return self._coordinator.last_update_success and self._client.library_available
 
     async def async_update(self):
         await self._coordinator.async_request_refresh()

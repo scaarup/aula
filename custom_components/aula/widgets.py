@@ -5,6 +5,7 @@ Handles widget detection, token management, and institution type detection.
 
 import logging
 import re
+import time
 
 from homeassistant.exceptions import ConfigEntryNotReady
 
@@ -20,7 +21,7 @@ class WidgetsMixin:
         try:
             # Use profiles.getProfileContext to get widget configurations
             response = self._session.get(
-                self.apiurl + "?method=profiles.getProfileContext",
+                self._make_api_url("profiles.getProfileContext", portalrole="guardian"),
                 headers=self._auth_headers(),
                 verify=True,
             )
@@ -88,7 +89,7 @@ class WidgetsMixin:
             else:
                 _LOGGER.warning("Failed to get profile context for widgets")
         except Exception as e:
-            _LOGGER.error(f"Error getting widgets from profile context: {e}")
+            _LOGGER.error(f"Error getting widgets from profile context: {type(e).__name__}")
 
     def _should_enable_widget(self, widget_id):
         """Check if a widget should be enabled based on availability and institution appropriateness"""
@@ -202,14 +203,14 @@ class WidgetsMixin:
             return "MockToken"
 
         # Check if we already have a token for this widget
-        if widgetid in self.tokens:
-            _LOGGER.debug(f"Reusing existing token for widget {widgetid}")
-            return self.tokens[widgetid]
+        cached = self.tokens.get(widgetid)
+        if isinstance(cached, tuple) and time.monotonic() - cached[1] < 60:
+            return cached[0]
 
         try:
             # Get token using current session
             response = self._session.get(
-                self.apiurl + "?method=aulaToken.getAulaToken&widgetId=" + widgetid,
+                self._make_api_url("aulaToken.getAulaToken", widgetId=widgetid),
                 headers=self._auth_headers(),
                 verify=True,
                 timeout=10,
@@ -229,13 +230,13 @@ class WidgetsMixin:
                 raise Exception("Token response missing data")
 
             token = "Bearer " + str(response_data["data"])
-            self.tokens[widgetid] = token
+            self.tokens[widgetid] = (token, time.monotonic())
 
             _LOGGER.debug(f"Successfully obtained token for widget {widgetid}")
             return token
 
         except Exception as e:
-            _LOGGER.error(f"Failed to get token for widget {widgetid}: {e}")
+            _LOGGER.error(f"Failed to get token for widget {widgetid}: {type(e).__name__}")
             raise ConfigEntryNotReady(
-                f"Failed to obtain API token for widget {widgetid}: {e}"
+                f"Failed to obtain API token for widget {widgetid}: {type(e).__name__}"
             )
