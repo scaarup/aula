@@ -1,18 +1,18 @@
-[![Current Release](https://img.shields.io/github/release/scaarup/aula/all.svg?style=plastic)](https://github.com/scaarup/aula/releases) [![Github All Releases](https://img.shields.io/github/downloads/scaarup/aula/total.svg?style=plastic)](https://github.com/scaarup/aula/releases) [![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=plastic)](https://github.com/hacs/integration)
+[![Current Release](https://img.shields.io/github/release/scaarup/aula/all.svg?style=plastic)](https://github.com/scaarup/aula/releases) [![Github All Releases](https://img.shields.io/github/downloads/scaarup/aula/total.svg?style=plastic)](https://github.com/scaarup/aula/releases) 
 
 # Aula
 
 This is a custom component for Home Assistant to integrate Aula.
 
-- Installable and updatable via HACS
+- Installable and updatable through the Home Assistant Marketplace (formerly HACS)
 - UI config flow
 - School schedules as Home Assistant calendars
 - Booked meetings (skole-hjem-samtaler, forældresamtaler) as Home Assistant calendars (opt-in)
 - "Ugeplaner/Ugenoter" from "Min Uddannelse", "Meebook", "EasyIQ" and "Docendo"
-- "Opgaver" from "Min Uddannelse", including the assignment notes/descriptions (`indhold`). The sensor exposes them as HTML in `mu_opgaver` / `mu_opgaver_next` and as structured lists in `mu_opgaver_data` / `mu_opgaver_next_data` (`id`, `titel`, `dato`, `ugedag`, `fag`, `indhold`). Notes are fetched from the Min Uddannelse web API for the current and next ISO week; if that fails, the assignments are still shown without notes.
+- "Opgaver" (assignments) from "Min Uddannelse", including the teacher's notes, see [Opgaver](#opgaver-min-uddannelse-assignments)
 - Messages - if there are unread messages, we turn a binary sensor on and populate it with the message details.
-- "Huskelisten" from "Systematic"
-- Use the builtin service to interact directly with Aulas API.
+- "Huskelisten" (reminders) from "Systematic", see [Huskelisten](#huskelisten-systematic)
+- Use the builtin `aula.api_call` service to interact directly with Aula's API, see [Service](#service-aulaapi_call).
 
   "Ugeplaner/ugenoter/huskelisten" are stored as sensor attributes. Can be rendered like:
 
@@ -63,11 +63,15 @@ cards:
 
 ## Installation
 
-#### HACS
+#### Marketplace (recommended)
 
-- Ensure that HACS is installed.
-- Search for and install the "Aula" integration.
+Home Assistant 2026.11 and newer ships with the **Marketplace** (the successor of HACS), under **Settings** > **Marketplace**. The Aula repository is available there.
+
+- Open **Settings** > **Marketplace**.
+- Search for and download the "Aula" integration.
 - Restart Home Assistant.
+
+On Home Assistant older than 2026.11 the same catalog is available through the HACS custom integration.
 
 #### Manual installation
 
@@ -82,6 +86,32 @@ Shortcut:<br>
 
 - Go to Settings -> Integrations -> Add Integration
 - Search for "Aula" and follow the instructions in the config flow.
+
+### Login (MitID)
+
+You must log in with the **guardian's MitID**; childlogin is not supported.
+
+- Enter your MitID username. You then approve the login in the **MitID app**.
+- If you use a MitID **token device** instead, the flow asks for your MitID password and the code from the token device.
+- If several MitID identities are found, you pick the one to use for Aula.
+- Choose which features to enable (school schedule, ugeplaner, Min Uddannelse assignments, booked meetings). You can change this later under **Configure**.
+
+Aula issues a refresh token that Home Assistant renews automatically and stores, so you stay logged in across restarts. Only when the refresh token has expired or is revoked does Home Assistant ask you to re-authenticate in the integration card: approve MitID once more, no need to delete the integration.
+
+### Entities
+
+For each child the integration creates (names depend on the child's first name and your school):
+
+| Entity | Purpose |
+|---|---|
+| `sensor.<school>_<child>` | Main sensor with the weekly plans, assignments and reminders as attributes |
+| `calendar.skoleskema_<child>` | School schedule (opt-in) |
+| `calendar.ugeplan_<child>` | Lessons from EasyIQ and Docendo (see Ugeplaner) |
+| `calendar.samtaler_<child>` | Booked meetings (opt-in) |
+| `calendar.fodselsdage_<child>` | Birthdays |
+| `binary_sensor.aula_aulamessage` | On when there are unread messages, with the message details as attributes |
+
+If two or more of your children are in the same class, every one of them gets the class's lessons in their own schedule.
 
 ### Booked meetings (samtaler)
 
@@ -121,11 +151,38 @@ Friday, with the letter as plain text in the description. Weeks without a letter
 
 > Ugeplaner are read through the same unofficial widget endpoints that Aula's own web
 > page uses, and can change without notice. If an update breaks them, you can go back to
-> the previous version in HACS (Aula → ⋮ → Redownload → pick the version).
+> the previous version in the Marketplace (Aula → ⋮ → Redownload → pick the version).
+
+### Opgaver (Min Uddannelse assignments)
+
+Enable "assignments from Min Uddannelse" when adding the integration, or later under **Configure**. This needs the Min Uddannelse assignments widget in Aula (0030, or 0023 at schools that do not expose 0030 to guardians). If your school has neither, the integration logs an error and shows no assignments.
+
+For the current and next ISO week, each child's sensor gets:
+
+- `mu_opgaver` / `mu_opgaver_next`: the assignments as HTML, including the teacher's notes (`indhold`), ready for a markdown card.
+- `mu_opgaver_data` / `mu_opgaver_next_data`: the same as structured lists with `id`, `titel`, `dato`, `ugedag`, `fag` and `indhold`, for use in templates and automations.
+
+The notes are fetched from the Min Uddannelse web API. If that fails, the assignments are still shown, just without notes.
+
+```yaml
+type: markdown
+title: Opgaver for Emilie
+content: '{{ state_attr("sensor.hojelse_skole_emilie", "mu_opgaver") }}'
+```
+
+### Huskelisten (Systematic)
+
+Schools that use Systematic's "Huskelisten" widget (0062 in Aula) get the child's reminders (homework and team reminders) in the `huskelisten` attribute of the child's sensor.
+
+### Service: `aula.api_call`
+
+Makes a custom call to Aula's API with your login. `uri` is the part after the API base URL, e.g. `?method=presence.updatePresenceTemplate`. Without `post_data` the call is a GET; with JSON `post_data` it is a POST. A POST can change data in Aula, so use it with care. See `services.yaml` for a full example.
 
 ### Known issues
-- You must use the guardian MitID, childlogin is not supported.
-- The config flow does not currently support a reconfiguration. Meaning when your password expires, the integration must be deleted and added again, in order to update the password.
+
+- You must use the guardian MitID; childlogin is not supported.
+- Ugeplaner and assignments are read through unofficial endpoints and can break when the provider changes them.
+- Entity names contain your school's name (e.g. `sensor.hojelse_skole_emilie`) and differ from the examples in this README.
 
 ## Support
 Join our Discord https://discord.gg/SnfRg3DWG6 and feel free to ask in #homeassistant
