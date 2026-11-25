@@ -1,4 +1,3 @@
-import logging
 import asyncio
 import concurrent.futures
 from typing import Any, Dict, Optional
@@ -38,8 +37,9 @@ from .const import (
 from .aula_login_client.client import AulaLoginClient
 from .aula_login_client.exceptions import AulaAuthenticationError
 from .views import AulaAuthView, AulaAuthStatusView, AulaAuthSelectIdentityView
+from .log_redaction import redacting_logger
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = redacting_logger(__name__)
 
 USER_SCHEMA = vol.Schema(
     {

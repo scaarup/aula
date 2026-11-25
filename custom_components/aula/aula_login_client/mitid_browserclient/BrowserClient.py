@@ -1,7 +1,8 @@
-import requests, time, hashlib, base64, hmac, qrcode, threading, json, logging
+import requests, time, hashlib, base64, hmac, qrcode, threading, json
 from .CustomSRP import CustomSRP, hex_to_bytes, bytes_to_hex, pad
+from ...log_redaction import redacting_logger
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = redacting_logger(__name__)
 
 
 class BrowserClient:

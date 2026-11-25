@@ -1,10 +1,10 @@
-import logging
 import asyncio
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from .const import DOMAIN
+from .log_redaction import redacting_logger
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = redacting_logger(__name__)
 
 
 class AulaAuthView(HomeAssistantView):

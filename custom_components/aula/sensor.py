@@ -1,5 +1,5 @@
 from .const import DOMAIN
-import logging
+from .log_redaction import redacting_logger
 from datetime import datetime, timedelta
 from homeassistant.helpers.entity import Entity
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -16,7 +16,7 @@ from homeassistant.core import (
 )
 import homeassistant.helpers.config_validation as cv
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = redacting_logger(__name__)
 
 from .const import (
     CONF_UGEPLAN,
