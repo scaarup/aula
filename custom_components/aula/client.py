@@ -388,7 +388,7 @@ def parse_easyiq_weekly_letter(payload):
         visible = item.get("IsVisible", True)
         if isinstance(visible, str):
             visible = visible.strip().lower() in ("true", "1", "yes")
-        text = (item.get("Text") or "").strip()
+        text = sanitize_html((item.get("Text") or "").strip())
         if visible and text:
             parts.append(text)
 
@@ -2058,7 +2058,9 @@ class Client:
                                     if note["title"] or note["owner"]:
                                         _ugep += "<br>"
                                     if note["desc"]:
-                                        _ugep += f"{note['desc']}<br>"
+                                        clean_desc = sanitize_html(note["desc"])
+                                        if clean_desc:
+                                            _ugep += f"{clean_desc}<br>"
 
                             if events_by_day:
                                 for (day_date, day_name), day_events in sorted(events_by_day.items(), key=lambda x: x[0][0]):
@@ -2068,7 +2070,9 @@ class Client:
                                         if ev["owner"]:
                                             _ugep += f"<i>{ev['owner']}</i><br>"
                                         if ev["desc"]:
-                                            _ugep += f"{ev['desc']}<br>"
+                                            clean_desc = sanitize_html(ev["desc"])
+                                            if clean_desc:
+                                                _ugep += f"{clean_desc}<br>"
 
                             if thisnext == "this":
                                 self.ugep_attr[first_name] = _ugep
