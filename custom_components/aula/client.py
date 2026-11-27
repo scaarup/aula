@@ -1248,6 +1248,37 @@ class Client:
         self.tokens[widgetid] = (token, datetime.datetime.now(pytz.utc))
         return token
 
+    def _get_mu_opgaver_response(self, widget, get_payload):
+        """GET the MU Opgaver list. On an expired token, refresh the session and retry once."""
+
+        def request():
+            return requests.get(
+                MIN_UDDANNELSE_API + get_payload,
+                headers={
+                    "Authorization": self.get_token(widget),
+                    "accept": "application/json",
+                },
+                verify=True,
+            )
+
+        response = request()
+        if response.status_code == 401:
+            _LOGGER.debug(
+                "MU Opgaver token for widget %s was rejected (401), refreshing and retrying once",
+                widget,
+            )
+            self.tokens.pop(widget, None)
+            self._session = None
+            try:
+                self.login(force_refresh=True)
+            except Exception as login_err:
+                _LOGGER.warning(
+                    f"Failed to refresh Aula session after MU Opgaver token was rejected: {login_err}"
+                )
+                return response
+            response = request()
+        return response
+
     def _docendo_failed(self, message, *args):
         """Log a Docendo failure: a warning the first time, then debug until it recovers."""
         if self._docendo_failing:
@@ -1701,7 +1732,6 @@ class Client:
             def mu_opgaver(week, thisnext):
                 if mu_widget is not None:
                     _LOGGER.debug("In the MU Opgaver flow, using widget " + mu_widget)
-                    token = self.get_token(mu_widget)
                     get_payload = (
                         "/opgaveliste?assuranceLevel=2&childFilter="
                         + childUserIds
@@ -1711,11 +1741,7 @@ class Client:
                         + guardian
                         + "&userProfile=guardian"
                     )
-                    mu_opgaver = requests.get(
-                        MIN_UDDANNELSE_API + get_payload,
-                        headers={"Authorization": token, "accept": "application/json"},
-                        verify=True,
-                    )
+                    mu_opgaver = self._get_mu_opgaver_response(mu_widget, get_payload)
                     _LOGGER.debug(
                         "MU Opgaver status_code " + str(mu_opgaver.status_code)
                     )
