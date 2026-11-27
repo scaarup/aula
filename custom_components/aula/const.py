@@ -109,3 +109,6 @@ AUTH_METHOD_TOKEN = "TOKEN"
 CONF_ACCESS_TOKEN = "access_token"
 CONF_REFRESH_TOKEN = "refresh_token"
 CONF_TOKEN_EXPIRES_AT = "token_expires_at"
+
+# Number of days ahead to fetch planned presence (komme/gå) for.
+PRESENCE_TEMPLATE_DAYS = 7

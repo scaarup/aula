@@ -266,6 +266,10 @@ class AulaSensor(Entity):
                         attributes[attribute] = daily_info[attribute]
             attributes["profilePicture"] = profilePicture
             attributes["institutionProfileId"] = daily_info["institutionProfile"]["id"]
+        # Planned komme/gå for today and the coming days (list of dicts, one per date).
+        attributes["presence_templates"] = getattr(
+            self._client, "_presence_templates", {}
+        ).get(str(self._child["id"]), [])
         return attributes
 
     @property
