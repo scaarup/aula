@@ -1,9 +1,10 @@
-import binascii, base64, hashlib, argparse, logging
+import binascii, base64, hashlib, argparse
 from Crypto import Random
 from .BrowserClient import BrowserClient
 from bs4 import BeautifulSoup
+from ...log_redaction import redacting_logger
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = redacting_logger(__name__)
 
 # Use this function to add the minimum required args to your login flow
 def get_default_args() -> argparse.ArgumentParser:

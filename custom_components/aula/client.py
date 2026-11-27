@@ -1,4 +1,3 @@
-import logging
 import requests
 import datetime
 import pytz
@@ -30,8 +29,9 @@ from homeassistant.components.calendar import CalendarEvent
 from homeassistant.util import dt as dt_util
 from .aula_login_client.client import AulaLoginClient
 from .aula_login_client.exceptions import AulaAuthenticationError, NetworkError
+from .log_redaction import redact, redacting_logger
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = redacting_logger(__name__)
 
 # Widgets that can mint a token for the Min Uddannelse "opgaveliste" endpoint,
 # in order of preference. 0030 is the dedicated "MU Opgaver" widget; 0023
@@ -814,10 +814,14 @@ class Client:
         except NetworkError as e:
             # Not an auth failure: keep the tokens and let Home Assistant retry.
             _LOGGER.warning(f"Aula login server unreachable: {e}")
-            raise ConfigEntryNotReady(f"Aula login server unreachable: {e}") from e
+            # Home Assistant shows this text in the UI as the reason for the retry.
+            raise ConfigEntryNotReady(
+                f"Aula login server unreachable: {redact(e)}"
+            ) from e
         except Exception as e:
             _LOGGER.error(f"Login failed: {str(e)}")
-            raise ConfigEntryNotReady(f"Login failed: {str(e)}")
+            # The text of a failed request holds the URL, and so the access token.
+            raise ConfigEntryNotReady(f"Login failed: {redact(e)}")
 
     def _apply_token_to_session(self, access_token):
         """Initialize session for API calls. Token is passed as query parameter, not header."""

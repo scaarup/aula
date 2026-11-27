@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, date
-import logging, time
+import time
 from .const import (
     DOMAIN,
     CONF_SCHOOLSCHEDULE,
@@ -19,8 +19,9 @@ from homeassistant.components.calendar import (
 )
 from homeassistant.util import Throttle
 from homeassistant.util import dt as dt_util
+from .log_redaction import redacting_logger
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = redacting_logger(__name__)
 
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=10)
 PARALLEL_UPDATES = 1

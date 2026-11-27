@@ -3,11 +3,11 @@ from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant import config_entries, core
 #from homeassistant.util import Throttle
-import logging
 
 from .const import DOMAIN
+from .log_redaction import redacting_logger
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = redacting_logger(__name__)
 SCAN_INTERVAL = timedelta(seconds=300.0)
 
 async def async_setup_entry(hass: core.HomeAssistant, config_entry: config_entries.ConfigEntry, async_add_entities):

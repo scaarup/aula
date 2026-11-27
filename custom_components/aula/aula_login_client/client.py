@@ -16,7 +16,6 @@ import time
 import binascii
 import uuid
 import os
-import logging
 from pathlib import Path
 from typing import Dict, Optional, Tuple, List
 from urllib.parse import parse_qs, urlparse, urljoin
@@ -34,6 +33,7 @@ from .exceptions import (
     SAMLError,
     OAuthError,
 )
+from ..log_redaction import redacting_logger
 
 # Import MitID BrowserClient from the local module
 try:
@@ -110,7 +110,7 @@ class AulaLoginClient:
         self.verbose = verbose
 
         # Initialize logger for Home Assistant integration
-        self.logger = logging.getLogger(__name__)
+        self.logger = redacting_logger(__name__)
 
         # Configure proxy if provided
         if proxy:
@@ -461,9 +461,8 @@ class AulaLoginClient:
                     self.mitid_token = input(
                         "Please input the 6 digits from your code token: "
                     ).strip()
-                self.log(
-                    f"Starting token authentication with {self.mitid_password} and {self.mitid_token}"
-                )
+                # Never log the password or the code: users are asked to post this log.
+                self.log("Starting token authentication")
                 self.mitid_client.authenticate_with_token(self.mitid_token)
                 self.mitid_client.authenticate_with_password(self.mitid_password)
             elif self.auth_method == "APP" and "APP" in available_authenticators:

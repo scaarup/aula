@@ -19,10 +19,10 @@ from .const import (
     CONF_MU_OPGAVER,
     CONF_MEETINGS,
 )
-import logging
 from .client import Client
+from .log_redaction import redacting_logger
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = redacting_logger(__name__)
 
 # Keys in entry.data that hold the rotating OAuth token set. They are rewritten on
 # every token renewal and must never trigger a config entry reload.
