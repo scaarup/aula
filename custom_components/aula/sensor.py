@@ -76,12 +76,13 @@ async def async_setup_entry(
         update_interval=timedelta(minutes=5),
     )
 
-    # Immediate refresh
-    await coordinator.async_request_refresh()
+    # async_setup_entry (__init__.py) fetched all data just before the platforms
+    # were set up, so don't fetch it again here: the coordinator takes over on its
+    # update_interval. Refreshing here, plus update_before_add below, made every
+    # startup fetch everything from Aula three times.
 
     entities = []
-    # Ensure data is updated before creating entities
-    # (coordinator refresh above handles this, but we need data for entity creation loop)
+    # Only if the initial fetch left no presence data.
     if not client.presence:
         await hass.async_add_executor_job(client.update_data)
 
@@ -108,7 +109,8 @@ async def async_setup_entry(
         mu_opgaver = True
     else:
         mu_opgaver = False
-    async_add_entities(entities, update_before_add=True)
+    # The entities read the client's data directly; no extra fetch before adding.
+    async_add_entities(entities)
 
     def custom_api_call_service(call: ServiceCall) -> ServiceResponse:
         if "post_data" in call.data and len(call.data["post_data"]) > 0:

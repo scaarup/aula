@@ -216,8 +216,6 @@ def capture_update_method(monkeypatch, update_data):
     class FakeCoordinator:
         def __init__(self, hass, logger, **kwargs):
             captured.update(kwargs)
-
-        async def async_request_refresh(self):
             raise StopSetup
 
     async def run_in_executor(func, *args):
@@ -257,3 +255,42 @@ def test_coordinator_passes_auth_failure_through(monkeypatch):
 
     with pytest.raises(ConfigEntryAuthFailed):
         asyncio.run(update())
+
+
+def test_sensor_setup_does_not_fetch_again(monkeypatch):
+    """__init__ already fetched the data: sensor setup must not fetch it again."""
+    calls = {"update_data": 0, "refresh": 0}
+    added = {}
+
+    class FakeCoordinator:
+        def __init__(self, hass, logger, **kwargs):
+            pass
+
+        async def async_request_refresh(self):
+            calls["refresh"] += 1
+
+    def update_data():
+        calls["update_data"] += 1
+
+    async def run_in_executor(func, *args):
+        return func(*args)
+
+    def add_entities(entities, update_before_add=False):
+        added["update_before_add"] = update_before_add
+
+    monkeypatch.setattr(sensor, "DataUpdateCoordinator", FakeCoordinator)
+    entry = SimpleNamespace(entry_id="entry-1", options={})
+    client = SimpleNamespace(update_data=update_data, presence={"1": 0}, _children=[])
+    hass = SimpleNamespace(
+        data={
+            DOMAIN: {
+                "entry-1": {CONF_MITID_USERNAME: "mitid-user", "ugeplan": False, "mu_opgaver": False},
+                "client": client,
+            }
+        },
+        async_add_executor_job=run_in_executor,
+        services=SimpleNamespace(async_register=lambda *a, **k: None),
+    )
+    asyncio.run(sensor.async_setup_entry(hass, entry, add_entities))
+    assert calls == {"update_data": 0, "refresh": 0}
+    assert added["update_before_add"] is False
