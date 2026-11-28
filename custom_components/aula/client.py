@@ -1449,6 +1449,19 @@ class Client:
 
     ###
 
+    def _log_missing_widgets(self, feature, message, *args):
+        """Log a missing-widget error once, then only at debug level.
+
+        update_data() runs every few minutes, and the widgets a school offers
+        rarely change, so repeating the error every run only fills the log.
+        """
+        logged = self.__dict__.setdefault("_missing_widgets_logged", set())
+        if feature in logged:
+            _LOGGER.debug(message, *args)
+            return
+        logged.add(feature)
+        _LOGGER.error(message, *args)
+
     def update_data(self):
         # Ensure valid token before making API calls
         self._ensure_valid_token()
@@ -1694,8 +1707,9 @@ class Client:
                 None,
             )
             if mu_widget is None:
-                _LOGGER.error(
-                    "You have enabled Min Uddannelse Opgaver, but we cannot find any supported widgets (0030,0023) in Aula."
+                self._log_missing_widgets(
+                    "mu_opgaver",
+                    "You have enabled Min Uddannelse Opgaver, but we cannot find any supported widgets (0030,0023) in Aula.",
                 )
 
             def mu_opgaver(week, thisnext):
@@ -1774,7 +1788,8 @@ class Client:
                 and DOCENDO_WIDGET not in self.widgets
                 and not any(widget in self.widgets for widget in EASYIQ_WIDGETS)
             ):
-                _LOGGER.error(
+                self._log_missing_widgets(
+                    "ugeplan",
                     "You have enabled ugeplaner, but we cannot find any supported widgets in Aula "
                     "(Min Uddannelse 0029/0023, Meebook 0004, Docendo 0057, Systematic 0062, EasyIQ %s).",
                     "/".join(EASYIQ_WIDGETS),
