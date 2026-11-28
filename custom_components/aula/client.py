@@ -12,6 +12,7 @@ import uuid
 from bs4 import BeautifulSoup, CData, Comment, Declaration, Doctype, ProcessingInstruction
 import json, re
 from .const import (
+    PRESENCE_TEMPLATE_DAYS,
     API,
     API_VERSION,
     MIN_UDDANNELSE_API,
@@ -57,6 +58,29 @@ DOCENDO_DEFAULT_LESSON_MINUTES = 45
 
 DANISH_WEEKDAYS = ("mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag")
 
+
+
+def _hhmm(value):
+    """Convert 'HH:MM:SS' to 'HH:MM'; leave anything else untouched."""
+    if isinstance(value, str) and len(value) == 8 and value.count(":") == 2:
+        return None if value == "23:59:00" else value[:5]
+    return value
+
+
+def presence_template_day(day):
+    """Flatten one Aula presence day template (komme/gå plan) to sensor-friendly data."""
+    return {
+        "date": day.get("byDate"),
+        "activityType": day.get("activityType"),
+        "entryTime": _hhmm(day.get("entryTime")),
+        "exitTime": _hhmm(day.get("exitTime")),
+        "exitWith": day.get("exitWith"),
+        "comment": day.get("comment"),
+        "spareTimeActivity": day.get("spareTimeActivity"),
+        "selfDeciderStartTime": _hhmm(day.get("selfDeciderStartTime")),
+        "selfDeciderEndTime": _hhmm(day.get("selfDeciderEndTime")),
+        "isOnVacation": day.get("isOnVacation", False),
+    }
 
 def decode_mu_deeplink(url):
     """Return the MinUddannelse page URL embedded in an opgave "url" field.
@@ -1560,6 +1584,43 @@ class Client:
                 )
                 self.presence[str(child["id"])] = 0
         _LOGGER.debug("Child ids and presence data status: " + str(self.presence))
+
+        # Planned presence (komme/gå) for the coming days, from the same
+        # endpoint the Aula app uses for the week view.
+        self._presence_templates = {}
+        presence_ids = [
+            str(child["id"])
+            for child in self._children
+            if self.presence.get(str(child["id"])) == 1
+        ]
+        if presence_ids:
+            try:
+                today = dt_util.now().date()
+                to_date = today + datetime.timedelta(days=PRESENCE_TEMPLATE_DAYS)
+                response = self._session.get(
+                    self.apiurl
+                    + "?method=presence.getPresenceTemplates"
+                    + "".join(
+                        "&filterInstitutionProfileIds[]=" + child_id
+                        for child_id in presence_ids
+                    )
+                    + "&fromDate="
+                    + today.isoformat()
+                    + "&toDate="
+                    + to_date.isoformat()
+                    + self._get_access_token_param(),
+                    verify=True,
+                ).json()
+                weeks = (response.get("data") or {}).get("presenceWeekTemplates") or []
+                for week in weeks:
+                    profile_id = str((week.get("institutionProfile") or {}).get("id"))
+                    self._presence_templates[profile_id] = [
+                        presence_template_day(day)
+                        for day in (week.get("dayTemplates") or [])
+                    ]
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.warning("Could not fetch planned presence templates: %s", err)
+        _LOGGER.debug("Presence templates: " + str(self._presence_templates))
 
         # Messages:
         mesres = self._session.get(
