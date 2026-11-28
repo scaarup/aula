@@ -89,10 +89,14 @@
           "schoolschedule": "Add school schedules as calendar entities?",
           "ugeplan": "Add ugeplaner as sensor attributes?",
           "mu_opgaver": "Enable assignments from Min Uddannelse",
-          "meetings": "Add booked meetings (samtaler) as calendar entities?"
+          "meetings": "Add booked meetings (samtaler) as calendar entities?",
+          "allow_api_write": "Allow writing to Aula via aula.api_call"
         },
         "description": "",
-        "title": "Options"
+        "title": "Options",
+        "data_description": {
+          "allow_api_write": "Off = read-only: aula.api_call only reads. On = post_data is sent, so anything with a Home Assistant token can write to Aula as you."
+        }
       },
       "schoolschedule_display": {
         "data": {

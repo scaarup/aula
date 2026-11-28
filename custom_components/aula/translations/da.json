@@ -78,10 +78,14 @@
           "schoolschedule": "Skoleskemaer som kalender entiteter",
           "ugeplan": "Ugeplaner som sensor attributter",
           "mu_opgaver": "Opgaver fra Min Uddannelse som sensor attribut",
-          "meetings": "Bookede samtaler som kalender entiteter"
+          "meetings": "Bookede samtaler som kalender entiteter",
+          "allow_api_write": "Tillad skrivning til Aula via aula.api_call"
         },
         "description": "",
-        "title": "Login"
+        "title": "Login",
+        "data_description": {
+          "allow_api_write": "Fra = kun læsning: aula.api_call kan kun hente. Til = post_data sendes, så alt med en Home Assistant-token kan skrive til Aula som dig."
+        }
       },
       "schoolschedule_display": {
         "data": {

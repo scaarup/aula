@@ -176,7 +176,7 @@ Schools that use Systematic's "Huskelisten" widget (0062 in Aula) get the child'
 
 ### Service: `aula.api_call`
 
-Makes a custom call to Aula's API with your login. `uri` is the part after the API base URL, e.g. `?method=presence.updatePresenceTemplate`. Without `post_data` the call is a GET; with JSON `post_data` it is a POST. A POST can change data in Aula, so use it with care. See `services.yaml` for a full example.
+Makes a custom call to Aula's API with your login. `uri` is the part after the API base URL, e.g. `?method=presence.updatePresenceTemplate`. Without `post_data` the call is a GET; with JSON `post_data` it is a POST. A POST can change data in Aula, so it is refused unless you turn on **Allow writing to Aula via aula.api_call** under **Configure** (off by default). Without it the integration is read-only towards Aula, also for scripts, add-ons or AI agents that hold a Home Assistant token. See `services.yaml` for a full example.
 
 ### Known issues
 

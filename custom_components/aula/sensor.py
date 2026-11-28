@@ -18,6 +18,7 @@ import homeassistant.helpers.config_validation as cv
 
 _LOGGER = logging.getLogger(__name__)
 
+from .write_guard import check_api_call
 from .const import (
     CONF_UGEPLAN,
     CONF_MU_OPGAVER,
@@ -111,7 +112,8 @@ async def async_setup_entry(
     async_add_entities(entities, update_before_add=True)
 
     def custom_api_call_service(call: ServiceCall) -> ServiceResponse:
-        if "post_data" in call.data and len(call.data["post_data"]) > 0:
+        # Read-only unless writing is allowed under Configure (write_guard.py).
+        if check_api_call(config_entry.data, call.data.get("post_data")):
             data = client.custom_api_call(call.data["uri"], call.data["post_data"])
         else:
             data = client.custom_api_call(call.data["uri"], 0)
