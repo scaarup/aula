@@ -19,6 +19,8 @@ from .const import (
     SYSTEMATIC_API,
     EASYIQ_API,
     EASYIQ_SKOLEPORTAL_API,
+    SKOLEMAD_API,
+    SKOLEMAD_WIDGET,
     DOCENDO_API,
     MEETING_TYPES,
     MEETINGS_DAYS_AHEAD,
@@ -105,6 +107,31 @@ def mu_opgave_content(opgave):
         _LOGGER.warning("Unexpected Min Uddannelse assignment content format")
         return ""
     return content["text"] if content["text"].strip() else ""
+
+
+def skolemad_week_start(now):
+    """Return local midnight on the Monday of the week containing `now`."""
+    return (now - datetime.timedelta(days=now.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+
+
+def parse_skolemad_wallets(data):
+    """Parse a Pay4it AulaSchoolInfoV2 response into {first_name: {date: dish|None}}.
+
+    Each wallet is one child: {"Name": "Full Name", "Dates": {"YYYY-MM-DDT..": [dish, ...]}}.
+    An empty dish list means nothing is ordered that day (None).
+    """
+    result = {}
+    for wallet in (data or {}).get("Wallets") or []:
+        name = str(wallet.get("Name") or "").split()
+        if not name:
+            continue
+        days = {}
+        for date_str, dishes in sorted((wallet.get("Dates") or {}).items()):
+            days[date_str[:10]] = "; ".join(dishes) if dishes else None
+        result[name[0]] = days
+    return result
 
 
 def mu_opgaver_data(opgaver, child_name):
@@ -425,6 +452,7 @@ class Client:
     ugep_events = {}
     mu_opgaver_attr = {}
     mu_opgaver_next_attr = {}
+    skolemad_attr = {}
     widgets = {}
     tokens = {}
 
@@ -515,6 +543,7 @@ class Client:
         self._mu_session = requests.Session()
         self.mu_opgaver_data_attr = {}
         self.mu_opgaver_next_data_attr = {}
+        self._skolemad_fetched = None
 
     def _get_mu_web_opgaver(self, pupil_id, week):
         """Read the entire ISO week's descriptions, without a weekday filter."""
@@ -1221,6 +1250,55 @@ class Client:
             self.widgets[widgetid] = widgetname
         _LOGGER.info("Widgets found: " + str(self.widgets))
 
+    def _update_skolemad(self):
+        """Read this and next week's school meal orders from Pay4it.
+
+        Read-only: calls the same endpoint the Aula "Skolemad" widget (0118)
+        uses to show orders. Throttled to one fetch per 30 minutes.
+        Result: self.skolemad_attr[first_name] = {"this": {date: dish|None},
+        "next": {...}}.
+        """
+        now = dt_util.now()
+        last = self._skolemad_fetched
+        if last is not None and now - last < datetime.timedelta(minutes=30):
+            return
+        if len(self.widgets) == 0:
+            self.get_widgets()
+        if SKOLEMAD_WIDGET not in self.widgets:
+            return
+        token = self.get_token(SKOLEMAD_WIDGET)
+        if not token:
+            return
+        raw_token = token[len("Bearer "):] if token.startswith("Bearer ") else token
+        monday = skolemad_week_start(now)
+        result = {}
+        for key, start in (("this", monday), ("next", monday + datetime.timedelta(weeks=1))):
+            response = self._session.post(
+                SKOLEMAD_API,
+                json={
+                    "aulaToken": raw_token,
+                    "childs": list(self._childuserids),
+                    "date": start.isoformat(),
+                },
+                headers={
+                    "Accept": "application/json, text/plain, */*",
+                    "Origin": "https://www.aula.dk",
+                    "Referer": "https://www.aula.dk/",
+                },
+                timeout=20,
+                verify=True,
+            )
+            if response.status_code != 200:
+                _LOGGER.warning(
+                    f"Skolemad: HTTP {response.status_code} for week of {start.date()}"
+                )
+                return
+            for first_name, days in parse_skolemad_wallets(response.json()).items():
+                result.setdefault(first_name, {"this": {}, "next": {}})[key] = days
+        self.skolemad_attr = result
+        self._skolemad_fetched = now
+        _LOGGER.debug(f"Skolemad: updated orders for {', '.join(result) or 'no children'}")
+
     def get_token(self, widgetid, mock=False):
         if widgetid in self.tokens:
             token, timestamp = self.tokens[widgetid]
@@ -1745,6 +1823,12 @@ class Client:
             mu_opgaver(thisweek, "this")
             mu_opgaver(nextweek, "next")
         # End of MU Opgaver
+
+        # Skolemad (Pay4it widget 0118), read-only.
+        try:
+            self._update_skolemad()
+        except Exception as e:  # never let skolemad break the rest of the update
+            _LOGGER.warning(f"Skolemad: update failed: {e}")
 
         # Ugeplaner:
         if self._ugeplan is True:

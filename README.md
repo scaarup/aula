@@ -174,6 +174,22 @@ content: '{{ state_attr("sensor.hojelse_skole_emilie", "mu_opgaver") }}'
 
 Schools that use Systematic's "Huskelisten" widget (0062 in Aula) get the child's reminders (homework and team reminders) in the `huskelisten` attribute of the child's sensor.
 
+### Skolemad (Pay4it)
+
+Schools that show school meal orders on the Aula front page through the "Skolemad" widget (0118, provided by Pay4it, e.g. Københavns Kommune's EAT) get the ordered meals on the child's sensor:
+
+| Attribute | Content |
+|---|---|
+| `skolemad_today` | Today's dish, or empty when nothing is ordered |
+| `skolemad` | This week: `{"YYYY-MM-DD": dish or null}` |
+| `skolemad_next` | Next week, same format |
+
+Days with no order are `null`, so you can remind yourself to pack lunch. The integration only reads orders, the same way the widget does, and fetches them at most every 30 minutes. Ordering still happens on the provider's site.
+
+```yaml
+content: '{{ state_attr("sensor.hojelse_skole_emilie", "skolemad_today") or "Madpakke" }}'
+```
+
 ### Service: `aula.api_call`
 
 Makes a custom call to Aula's API with your login. `uri` is the part after the API base URL, e.g. `?method=presence.updatePresenceTemplate`. Without `post_data` the call is a GET; with JSON `post_data` it is a POST. A POST can change data in Aula, so use it with care. See `services.yaml` for a full example.
