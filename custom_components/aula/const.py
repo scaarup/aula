@@ -111,4 +111,4 @@ CONF_REFRESH_TOKEN = "refresh_token"
 CONF_TOKEN_EXPIRES_AT = "token_expires_at"
 
 # Number of days ahead to fetch planned presence (komme/gå) for.
-PRESENCE_TEMPLATE_DAYS = 7
+PRESENCE_TEMPLATE_DAYS = 14
