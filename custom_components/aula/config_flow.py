@@ -12,6 +12,7 @@ import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 
 from .const import (
+    CONF_ALLOW_API_WRITE,
     CONF_SCHOOLSCHEDULE,
     CONF_UGEPLAN,
     CONF_MU_OPGAVER,
@@ -500,6 +501,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 ): cv.boolean,
                 vol.Optional(
                     CONF_MEETINGS, default=current.get(CONF_MEETINGS, False)
+                ): cv.boolean,
+                vol.Optional(
+                    CONF_ALLOW_API_WRITE,
+                    default=current.get(CONF_ALLOW_API_WRITE, False),
                 ): cv.boolean,
             }
         )
