@@ -1,0 +1,20 @@
+{
+  "Wallets": [
+    {
+      "Name": "Emilie Jensen",
+      "Dates": {
+        "2026-11-24T00:00:00": ["Kyllingesuppe", "Rugbrød"],
+        "2026-11-23T00:00:00": ["Pasta med kødsovs"],
+        "2026-11-25T00:00:00": []
+      }
+    },
+    {
+      "Name": "Oscar Jensen",
+      "Dates": {}
+    },
+    {
+      "Name": "",
+      "Dates": {"2026-11-23T00:00:00": ["Pizza"]}
+    }
+  ]
+}

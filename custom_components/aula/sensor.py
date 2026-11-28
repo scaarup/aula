@@ -1,6 +1,7 @@
 from .const import DOMAIN
 import logging
 from datetime import datetime, timedelta
+from homeassistant.util import dt as dt_util
 from homeassistant.helpers.entity import Entity
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -228,6 +229,15 @@ class AulaSensor(Entity):
                     + str(self._child["name"].split()[0])
                     + ". Perhaps not available yet."
                 )
+        # Skolemad (Pay4it widget 0118).
+        skolemad = self._client.skolemad_attr.get(self._child["name"].split()[0])
+        if skolemad is not None:
+            this_week = skolemad.get("this", {})
+            attributes["skolemad_today"] = this_week.get(
+                dt_util.now().strftime("%Y-%m-%d")
+            )
+            attributes["skolemad"] = this_week
+            attributes["skolemad_next"] = skolemad.get("next", {})
         if ugeplan:
             if "0062" in self._client.widgets:
                 try:
